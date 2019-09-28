@@ -8,37 +8,87 @@ import statsmodels.tsa.stattools as ts
 import statsmodels.api as sm
 import itertools
 import timeit
+import multiprocess as mp
 from sklearn.linear_model import LinearRegression
 from helpers import *
 #%%
-def find_integrated(df, confidence=0.05, regression = 'c'):
+def find_integrated(df, confidence=0.05, regression = 'c', num_of_processes=1):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
     Takes the data from preprocess and filters out stationary series,
     returning data in the same format. 
     DF Test has unit root as null"""
-    pairs = df.index.unique(0)
-    integrated = []
-    for pair in pairs:
-        df.loc[pair, 'logReturns']=(np.log(df.loc[pair, 'Close'])-np.log(df.loc[pair,'Close'].shift(1))).values
-        df.loc[pair, 'logClose'] = np.log(df.loc[pair, 'Close'].values)
-        pvalue=ts.adfuller(df.loc[pair, 'logClose'].fillna(method='ffill').values, regression=regression)[1]
-        if pvalue >= confidence:
-            integrated.append(pair)
-    return df.loc[integrated]
+    if num_of_processes>1:
+        pairs = df.index.unique(0)
+        integrated = []
+        split = np.array_split(pairs, num_of_processes)
+        pool = mp.Pool(num_of_processes)
+        def worker(pairs):
+            integrated=[]
+            import statsmodels.tsa.stattools as ts
+            import numpy as np
+            for pair in pairs:
+                df.loc[pair, 'logReturns']=(np.log(df.loc[pair, 'Close'])-np.log(df.loc[pair,'Close'].shift(1))).values
+                df.loc[pair, 'logClose'] = np.log(df.loc[pair, 'Close'].values)
+                pvalue=ts.adfuller(df.loc[pair, 'logClose'].fillna(method='ffill').values, regression=regression)[1]
+                if pvalue >= confidence:
+                    integrated.append(pair)
+            return integrated
+        result = pool.map(worker, split)
+        pool.close()
+        pool.join()        
+        flat_result =[item for sublist in result for item in sublist]
+        return df.loc[flat_result]
+    else:
+        pairs = df.index.unique(0)
+        integrated = []
+        for pair in pairs:
+            df.loc[pair, 'logReturns']=(np.log(df.loc[pair, 'Close'])-np.log(df.loc[pair,'Close'].shift(1))).values
+            df.loc[pair, 'logClose'] = np.log(df.loc[pair, 'Close'].values)
+            pvalue=ts.adfuller(df.loc[pair, 'logClose'].fillna(method='ffill').values, regression=regression)[1]
+            if pvalue >= confidence:
+                integrated.append(pair)
+        return df.loc[integrated]
 
-def cointegration(df, confidence=0.05):
-    pairs = df.index.unique(0)
-    cointegrated = []
-    for pair in itertools.combinations(pairs,2):
-            x = df.loc[pair[0], 'logClose'].fillna(method='ffill').values
-            x=x.reshape((x.shape[0], 1))
-            y = df.loc[pair[1], 'logClose'].fillna(method='ffill').values
-            y=y.reshape((y.shape[0], 1))
-            if ts.coint(x,y)[1]<= confidence:
-                model = sm.OLS(y,sm.add_constant(x))
-                results = model.fit()
-                #the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
-                cointegrated.append([pair, results.params])
+def cointegration(df, confidence=0.05, num_of_processes=1):
+    if num_of_processes>1:
+        pairs = df.index.unique(0)
+        cointegrated = []
+        split = np.array_split(list(itertools.combinations(pairs,2)),3)
+        pool = mp.Pool(num_of_processes)
+        def worker(pairs, df = df, confidence=0.05):
+            import statsmodels.api as sm
+            import statsmodels.tsa.stattools as ts
+            cointegrated=[]
+            for pair in pairs:
+                    x = df.loc[pair[0], 'logClose'].fillna(method='ffill').values
+                    x=x.reshape((x.shape[0], 1))
+                    y = df.loc[pair[1], 'logClose'].fillna(method='ffill').values
+                    y=y.reshape((y.shape[0], 1))
+                    if ts.coint(x,y)[1]<= confidence:
+                        model = sm.OLS(y,sm.add_constant(x))
+                        results = model.fit()
+                        #the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
+                        cointegrated.append([pair, results.params])
+            return cointegrated
+        result = pool.map(worker, split)
+        pool.close()
+        pool.join()
+        flat_result =[item for sublist in result for item in sublist]
+        flat_result = [[tuple(item[0]), item[1]] for item in flat_result]
+        return flat_result
+    else:
+        pairs = df.index.unique(0)
+        cointegrated = []
+        for pair in itertools.combinations(pairs,2):
+                x = df.loc[pair[0], 'logClose'].fillna(method='ffill').values
+                x=x.reshape((x.shape[0], 1))
+                y = df.loc[pair[1], 'logClose'].fillna(method='ffill').values
+                y=y.reshape((y.shape[0], 1))
+                if ts.coint(x,y)[1]<= confidence:
+                    model = sm.OLS(y,sm.add_constant(x))
+                    results = model.fit()
+                    #the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
+                    cointegrated.append([pair, results.params])
     return cointegrated
 
 def coint_spread(df, viable_pairs, timeframe, betas=1):

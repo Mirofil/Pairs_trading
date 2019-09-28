@@ -365,7 +365,7 @@ class DataClient(object):
 			csv_file_info = mp.Manager().list()
 			pair = [currency_pair for i,currency_pair in enumerate(pair_list)]
 			lock = mp.Lock()
-			pool = mp.Pool(processes=mp.cpu_count(),initargs=(lock,))
+			pool = mp.Pool(processes=3,initargs=(lock,))
 			# data = pool.starmap(self.kline_to_csv,zip(pair,re(start_date),re(end_date),re(kline_interval_directory),re(interval),re(titles),re(fields),re(csv_file_info)))
 			data = pool.starmap(self.kline_to_csv,zip(pair,re(start_date),re(end_date),re(kline_interval_directory),re(interval),re(csv_file_info)))
 			pool.close()

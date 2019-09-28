@@ -11,6 +11,7 @@ import pickle
 from contextlib import contextmanager
 import os
 import shutil
+import multiprocess as mp
 
 #%%
 def pick_range(y, start, end):
@@ -267,65 +268,133 @@ def descriptive_stats(df, timeframe = 5, freq = 'daily', riskfree = 0.02, tradin
         if trades_nonzero == True:
             stats.loc[stats['Number of trades']== 0, ['Roundtrip trades', 'Avg length of position']]=None
     return stats
-def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=100):
+def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=100, num_of_processes=1):
     """ Fills in the Signals during timeframe period 
     Outside of the trading period, it fills Formation and pastTrading"""
-    #mask = (df['normSpread']>=threshold)&(df['normSpread'].shift(1)<threshold)
-    idx=pd.IndexSlice
-    for name, df in multidf.loc[pd.IndexSlice[:, timeframe[0]:timeframe[1]], :].groupby(level=0):
-        df['Signals'] = None
-        #df.loc[mask,'Signals'] = True
-        index=df.index
-        #this is technicality because we truncate the DF to just trading period but 
-        #in the first few periods the signal generation needs to access prior values
-        #which would be None so we just make them adhoc like this
-        col = [None for x in range(lag+2)]
-        fill = 'None'
-        for i in range(len(df)):
-            truei=i
-            if i-lag<0:
-                col.append(fill)
-                continue
-            if (df.loc[index[i-lag], 'normSpread']>stoploss)&(col[i+lag+1] in ['Short', 'keepShort']):
-                fill = 'stopShortLoss'
-                col.append(fill)
+    if num_of_processes > 1:
+        idx=pd.IndexSlice
+        pool = mp.Pool(num_of_processes)
+        split = []
+        for x in np.array_split(list(multidf.loc[idx[:, timeframe[0]:timeframe[1]], :].groupby(level=0)),num_of_processes):
+            for y in x:
+                split.append(y[1])
+        split = pd.concat(split)
+        split=split.loc[:, ['normSpread']]
+        def worker(multidf, timeframe=timeframe):
+            import pandas as pd
+            lazy_changes=[]
+            for name, df in multidf.loc[pd.IndexSlice[:, timeframe[0]:timeframe[1]], :].groupby(level=0):
+                df['Signals'] = None
+                #df.loc[mask,'Signals'] = True
+                index=df.index
+                #this is technicality because we truncate the DF to just trading period but 
+                #in the first few periods the signal generation needs to access prior values
+                #which would be None so we just make them adhoc like this
+                col = [None for x in range(lag+2)]
                 fill = 'None'
-                continue
-            if (df.loc[index[i-lag], 'normSpread']<(-stoploss))&(col[i+lag+1] in ['Long', 'keepLong']):
-                fill = 'stopLongLoss'
+                for i in range(len(df)):
+                    truei=i
+                    if i-lag<0:
+                        col.append(fill)
+                        continue
+                    if (df.loc[index[i-lag], 'normSpread']>stoploss)&(col[i+lag+1] in ['Short', 'keepShort']):
+                        fill = 'stopShortLoss'
+                        col.append(fill)
+                        fill = 'None'
+                        continue
+                    if (df.loc[index[i-lag], 'normSpread']<(-stoploss))&(col[i+lag+1] in ['Long', 'keepLong']):
+                        fill = 'stopLongLoss'
+                        col.append(fill)
+                        fill = 'None'
+                        continue
+                    if (df.loc[index[i-lag],'normSpread']>=threshold)&(df.loc[index[i-lag-1],'normSpread']<threshold)&(col[i+lag-1] not in ["keepShort"])&(col[truei+lag+1] not in ['Short', 'keepShort']):
+                        fill = "Short"
+                        col.append(fill)
+                        fill = "keepShort"
+                        continue
+                    elif (df.loc[index[i-lag],'normSpread']<=0)&(df.loc[index[i-lag-1],'normSpread']>0) & (col[i+lag+1] in ["Short", "keepShort"]):
+                        fill = "sellShort"
+                        col.append(fill)
+                        fill = "None"
+                        continue
+                    elif ((df.loc[index[i-lag],'normSpread']<=(-threshold))&(df.loc[index[i-lag-1],'normSpread']>(-threshold)))& (col[i+lag-1] not in ["keepLong"])&(col[truei+lag+1] not in ['Long', 'keepLong']):
+                        #print(i, col, name, col[truei+lag]!='Long', truei)
+                        fill = "Long"
+                        col.append(fill)
+                        fill = "keepLong"
+                        continue
+                    elif (df.loc[index[i-lag],'normSpread']>=0)&(df.loc[index[i-lag-1],'normSpread']<0) & (col[i+lag+1] in ["Long", "keepLong"]):
+                        fill = "sellLong"
+                        col.append(fill)
+                        fill = "None"
+                        continue
+                    col.append(fill)
+                col = col[(lag+2):-1]
+                col.append("Sell")
+                lazy_changes.append([name, col, df.index])
+                #df['Signals'] = pd.Series(col[1:], index=df.index)
+            return lazy_changes
+        lazy_changes = pool.map(worker, split)
+        flat_lazy_changes = [item for sublist in lazy_changes for item in sublist]
+        for name, col, index in flat_lazy_changes:
+            multidf.loc[pd.IndexSlice[name, timeframe[0]:timeframe[1]], 'Signals'] = pd.Series(col, index=index)        
+        
+    else:
+        idx=pd.IndexSlice
+        for name, df in multidf.loc[pd.IndexSlice[:, timeframe[0]:timeframe[1]], :].groupby(level=0):
+            df['Signals'] = None
+            #df.loc[mask,'Signals'] = True
+            index=df.index
+            #this is technicality because we truncate the DF to just trading period but 
+            #in the first few periods the signal generation needs to access prior values
+            #which would be None so we just make them adhoc like this
+            col = [None for x in range(lag+2)]
+            fill = 'None'
+            for i in range(len(df)):
+                truei=i
+                if i-lag<0:
+                    col.append(fill)
+                    continue
+                if (df.loc[index[i-lag], 'normSpread']>stoploss)&(col[i+lag+1] in ['Short', 'keepShort']):
+                    fill = 'stopShortLoss'
+                    col.append(fill)
+                    fill = 'None'
+                    continue
+                if (df.loc[index[i-lag], 'normSpread']<(-stoploss))&(col[i+lag+1] in ['Long', 'keepLong']):
+                    fill = 'stopLongLoss'
+                    col.append(fill)
+                    fill = 'None'
+                    continue
+                if (df.loc[index[i-lag],'normSpread']>=threshold)&(df.loc[index[i-lag-1],'normSpread']<threshold)&(col[i+lag-1] not in ["keepShort"])&(col[truei+lag+1] not in ['Short', 'keepShort']):
+                    fill = "Short"
+                    col.append(fill)
+                    fill = "keepShort"
+                    continue
+                elif (df.loc[index[i-lag],'normSpread']<=0)&(df.loc[index[i-lag-1],'normSpread']>0) & (col[i+lag+1] in ["Short", "keepShort"]):
+                    fill = "sellShort"
+                    col.append(fill)
+                    fill = "None"
+                    continue
+                elif ((df.loc[index[i-lag],'normSpread']<=(-threshold))&(df.loc[index[i-lag-1],'normSpread']>(-threshold)))& (col[i+lag-1] not in ["keepLong"])&(col[truei+lag+1] not in ['Long', 'keepLong']):
+                    #print(i, col, name, col[truei+lag]!='Long', truei)
+                    fill = "Long"
+                    col.append(fill)
+                    fill = "keepLong"
+                    continue
+                elif (df.loc[index[i-lag],'normSpread']>=0)&(df.loc[index[i-lag-1],'normSpread']<0) & (col[i+lag+1] in ["Long", "keepLong"]):
+                    fill = "sellLong"
+                    col.append(fill)
+                    fill = "None"
+                    continue
                 col.append(fill)
-                fill = 'None'
-                continue
-            if (df.loc[index[i-lag],'normSpread']>=threshold)&(df.loc[index[i-lag-1],'normSpread']<threshold)&(col[i+lag-1] not in ["keepShort"])&(col[truei+lag+1] not in ['Short', 'keepShort']):
-                fill = "Short"
-                col.append(fill)
-                fill = "keepShort"
-                continue
-            elif (df.loc[index[i-lag],'normSpread']<=0)&(df.loc[index[i-lag-1],'normSpread']>0) & (col[i+lag+1] in ["Short", "keepShort"]):
-                fill = "sellShort"
-                col.append(fill)
-                fill = "None"
-                continue
-            elif ((df.loc[index[i-lag],'normSpread']<=(-threshold))&(df.loc[index[i-lag-1],'normSpread']>(-threshold)))& (col[i+lag-1] not in ["keepLong"])&(col[truei+lag+1] not in ['Long', 'keepLong']):
-                #print(i, col, name, col[truei+lag]!='Long', truei)
-                fill = "Long"
-                col.append(fill)
-                fill = "keepLong"
-                continue
-            elif (df.loc[index[i-lag],'normSpread']>=0)&(df.loc[index[i-lag-1],'normSpread']<0) & (col[i+lag+1] in ["Long", "keepLong"]):
-                fill = "sellLong"
-                col.append(fill)
-                fill = "None"
-                continue
-            col.append(fill)
-        col = col[(lag+2):-1]
-        col.append("Sell")
-        #df['Signals'] = pd.Series(col[1:], index=df.index)
-        multidf.loc[pd.IndexSlice[name, timeframe[0]:timeframe[1]], 'Signals'] = pd.Series(col, index=df.index)
-    multidf.loc[idx[:, timeframe[1]:enddate], 'Signals']=multidf.loc[idx[:, timeframe[1]:enddate], 'Signals'].fillna(value='pastFormation')
-    multidf.loc[idx[:, formation[0]:formation[1]], 'Signals']=multidf.loc[idx[:, formation[0]:formation[1]], 'Signals'].fillna(value='Formation')
-    multidf.loc[idx[:, startdate:formation[0]], 'Signals']=multidf.loc[idx[:, startdate:formation[0]], 'Signals'].fillna(value='preFormation')
-    #multidf['Signals'] = multidf['Signals'].fillna(value='Formation')
+            col = col[(lag+2):-1]
+            col.append("Sell")
+            #df['Signals'] = pd.Series(col[1:], index=df.index)
+            multidf.loc[pd.IndexSlice[name, timeframe[0]:timeframe[1]], 'Signals'] = pd.Series(col, index=df.index)
+        multidf.loc[idx[:, timeframe[1]:enddate], 'Signals']=multidf.loc[idx[:, timeframe[1]:enddate], 'Signals'].fillna(value='pastFormation')
+        multidf.loc[idx[:, formation[0]:formation[1]], 'Signals']=multidf.loc[idx[:, formation[0]:formation[1]], 'Signals'].fillna(value='Formation')
+        multidf.loc[idx[:, startdate:formation[0]], 'Signals']=multidf.loc[idx[:, startdate:formation[0]], 'Signals'].fillna(value='preFormation')
+        #multidf['Signals'] = multidf['Signals'].fillna(value='Formation')
     return multidf
 
 def load_results(name, methods):
@@ -544,8 +613,11 @@ def cd(newdir):
         os.chdir(prevdir)
 
 def aggregate_from_individual_folders():
-    os.chdir(r"C:\Bach\fresh_admissible_secondwave\1m_data")
+    os.chdir(r"C:\Bach\test3\1m_data")
     cryptos = os.listdir()
     for crypto in cryptos:
-        with cd('TNTBTC'):
-            shutil.move(crypto + '.csv', r'C:\Bach\fresh_admissible_secondwave')
+        with cd(crypto):
+            shutil.move(crypto + '.csv', r'C:\Bach\test3')
+
+
+#%%
