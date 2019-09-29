@@ -14,11 +14,9 @@ from cointmethod import *
 from config import *
 from main import *
 from itertools import zip_longest
-#%%
 from itertools import zip_longest
 from helpers import beautify
 import pickle
-savepath1 = 'C:\\Users\\kawga\\Documents\\IES\\Bach\\code\\Pairs-trading\\tables\\'
 #%%
 #DF INTEGRATIONS
 y1=pd.read_pickle('preprocessedD0_0.pkl')
@@ -31,7 +29,7 @@ results = pd.DataFrame(index=['\# of unit roots (n=23)'], columns = ['neither' ,
 for option in options:
     results.loc[results.index[0] ,match[option]]=len(find_integrated(y2, regression=option).index.unique(level=0))
     #results.loc[results.index[1] ,match[option]]=len(find_integrated(y2, regression=option).index.unique(level=0))
-latexsave(results, savepath1+'unitroots')
+latexsave(results, save_path_tables+'unitroots')
 #%%
 #LIST OF PAIRS
 y1=pd.read_pickle('preprocessedD0_0.pkl')
@@ -39,7 +37,7 @@ y2=pd.read_pickle('preprocessedD0_7.pkl')
 files = os.listdir(data_folder)
 #we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
 #it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
-paths = ['C:\Bach\concatenated_price_data\ '[:-1] + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
+paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
 listnames = [file.partition('.')[0] for file in files]
 listnames = [name[:-3] for name in listnames]
 # counterparts = ['Cardano', 'AdEx', 'Aeternity', 'SingularityNet', 'Aion', 'Ambrosus',
@@ -71,7 +69,7 @@ mask2= matcheddf.index.isin([item[:-3] for item in list(y2.index.unique(level=0)
 # matcheddf['Cutoff'] = pd.Series(mask2).values
 # matcheddf.replace(False, 'Not incl.', inplace=True)
 # matcheddf.replace(True, 'Incl.', inplace=True)
-# latexsave(matcheddf, savepath1+'cryptolist')
+# latexsave(matcheddf, save_path_tables+'cryptolist')
 
 #%%
 #SAME PAIRS BETWEEN METHODS
@@ -99,8 +97,8 @@ multitable=beautify(multitable)
 #have to finish multitable with No Cutoff but have no data atm
 
 
-latexsave(table, savepath1 + 'identical')
-latexsave(multitable, savepath1 + 'identical_multi')
+latexsave(table, save_path_tables + 'identical')
+latexsave(multitable, save_path_tables + 'identical_multi')
 #%%
 #CORRELATIONS
 r1 = load_results('scenario1', 'dist')
@@ -125,9 +123,9 @@ cis=pd.concat([cis1, cis2],axis =0,  keys = ['Daily', 'Hourly'])
 corr = beautify(corr)
 corr_appendix = beautify(corr_appendix)
 
-latexsave(corr, savepath1+'distcorrs')
-latexsave(corr_appendix, savepath1+'distcorrs_hourly')
-latexsave(cis, savepath1+'corrcis')
+latexsave(corr, save_path_tables+'distcorrs')
+latexsave(corr_appendix, save_path_tables+'distcorrs_hourly')
+latexsave(cis, save_path_tables+'corrcis')
 #%%
 #RETURNS NORMALITY?
 rdd = load_results('scenario1', 'dist')
@@ -153,10 +151,10 @@ df['Daily', 'Distance']=summarize(retdd, index).values
 df['Daily', 'Cointegration']=summarize(retdc, index).values
 df['Hourly', 'Distance']=summarize(rethd, index).values
 df['Hourly', 'Cointegration']=summarize(rethc, index).values
-df.to_pickle(savepath1+'retstats.pkl')
+df.to_pickle(save_path_tables+'retstats.pkl')
 df.round(4)
 df = beautify(df)
-latexsave(df, savepath1+'retdist')
+latexsave(df, save_path_tables+'retdist')
 
 
 
@@ -167,18 +165,19 @@ rdd = load_results('scenario1', 'dist')
 rhd = load_results('scenario3', 'dist')
 rdc = load_results('scenario1', 'coint')
 rhc = load_results('scenario3', 'coint')
-# ddd = descriptive_frame(rdd)
-# dhd = descriptive_frame(rhd)
-# ddc = descriptive_frame(rdc)
-# dhc = descriptive_frame(rhc)
-# ddd.to_pickle(savepath1+'ddd.pkl')
-# dhd.to_pickle(savepath1+'dhd.pkl')
-# ddc.to_pickle(savepath1+'ddc.pkl')
-# dhc.to_pickle(savepath1+'dhc.pkl')
-ddd = pd.read_pickle(savepath1+'ddd.pkl')
-dhd = pd.read_pickle(savepath1+'dhd.pkl')
-dhc = pd.read_pickle(savepath1+'dhc.pkl')
-ddc = pd.read_pickle(savepath1+'ddc.pkl')
+ddd = descriptive_frame(rdd)
+dhd = descriptive_frame(rhd)
+ddc = descriptive_frame(rdc)
+dhc = descriptive_frame(rhc)
+ddd.to_pickle(save_path_tables+'ddd.pkl')
+dhd.to_pickle(save_path_tables+'dhd.pkl')
+ddc.to_pickle(save_path_tables+'ddc.pkl')
+dhc.to_pickle(save_path_tables+'dhc.pkl')
+save_path_tables='tables\\'
+ddd = pd.read_pickle(save_path_tables+'ddd.pkl')
+dhd = pd.read_pickle(save_path_tables+'dhd.pkl')
+dhc = pd.read_pickle(save_path_tables+'dhc.pkl')
+ddc = pd.read_pickle(save_path_tables+'ddc.pkl')
 
 #%%
 feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Sharpe','Trading period Sharpe', 'Number of trades', 'Roundtrip trades', 
@@ -186,7 +185,7 @@ feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Shar
 agg = aggregate([ddd, ddc, dhd, dhc], feasible, trades_nonzero=True, returns_nonzero=True)
 agg=standardize_results(agg)
 agg= beautify(agg)
-latexsave(agg, savepath1+'resultstable')
+latexsave(agg, save_path_tables+'resultstable')
 #%%
 
 #%%
@@ -195,18 +194,18 @@ rhdnl = load_results('scenario3_nolag', 'dist')
 rddnl = load_results('scenario1_nolag', 'dist')
 rdcnl = load_results('scenario1_nolag', 'coint')
 rhcnl = load_results('scenario3_nolag', 'coint')
-# dddnl = descriptive_frame(rddnl)
-# dhdnl = descriptive_frame(rhdnl)
-# ddcnl = descriptive_frame(rdcnl)
-# dhcnl = descriptive_frame(rhcnl)
-# dddnl.to_pickle(savepath1+'dddnl.pkl')
-# dhdnl.to_pickle(savepath1+'dhdnl.pkl')
-# ddcnl.to_pickle(savepath1+'ddcnl.pkl')
-# dhcnl.to_pickle(savepath1+'dhcnl.pkl')
-dddnl = pd.read_pickle(savepath1+'dddnl.pkl')
-dhdnl = pd.read_pickle(savepath1+'dhdnl.pkl')
-dhcnl = pd.read_pickle(savepath1+'dhcnl.pkl')
-ddcnl = pd.read_pickle(savepath1+'ddcnl.pkl')
+dddnl = descriptive_frame(rddnl)
+dhdnl = descriptive_frame(rhdnl)
+ddcnl = descriptive_frame(rdcnl)
+dhcnl = descriptive_frame(rhcnl)
+dddnl.to_pickle(save_path_tables+'dddnl.pkl')
+dhdnl.to_pickle(save_path_tables+'dhdnl.pkl')
+ddcnl.to_pickle(save_path_tables+'ddcnl.pkl')
+dhcnl.to_pickle(save_path_tables+'dhcnl.pkl')
+dddnl = pd.read_pickle(save_path_tables+'dddnl.pkl')
+dhdnl = pd.read_pickle(save_path_tables+'dhdnl.pkl')
+dhcnl = pd.read_pickle(save_path_tables+'dhcnl.pkl')
+ddcnl = pd.read_pickle(save_path_tables+'ddcnl.pkl')
 
 #%%
 feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Sharpe','Trading period Sharpe', 'Number of trades', 'Roundtrip trades', 
@@ -220,7 +219,7 @@ aggnl=standardize_results(aggnl)
 aggnl = aggnl.loc[['Monthly profit', 'Monthly profit (committed)','Annualized Sharpe', 'Monthly number of trades',
 'Roundtrip trades', 'Length of position (days)', 'Pct of winning trades', 'Max drawdown']]
 aggnl=beautify(aggnl)
-latexsave(aggnl, savepath1+'resultstablenolag')
+latexsave(aggnl, save_path_tables+'resultstablenolag')
 
 # feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Sharpe','Trading period Sharpe', 'Number of trades', 'Roundtrip trades', 
 # 'Avg length of position', 'Pct of winning trades', 'Max drawdown']
@@ -228,25 +227,25 @@ latexsave(aggnl, savepath1+'resultstablenolag')
 
 # aggnl_commited=standardize_results(aggnl_commited)
 # aggnl_commited=beautify(aggnl_commited)
-# latexsave(aggnl_commited, savepath1+'resultstablenolagcommited')
+# latexsave(aggnl_commited, save_path_tables+'resultstablenolagcommited')
 #%%
 #NO tx table
 rhdtx = load_results('scenario4', 'dist')
 rddtx = load_results('scenario2', 'dist')
 rdctx = load_results('scenario2', 'coint')
 rhctx = load_results('scenario4', 'coint')
-# dddtx = descriptive_frame(rddtx)
-# dhdtx = descriptive_frame(rhdtx)
-# ddctx = descriptive_frame(rdctx)
-# dhctx = descriptive_frame(rhctx)
-# dddtx.to_pickle(savepath1+'dddtx.pkl')
-# dhdtx.to_pickle(savepath1+'dhdtx.pkl')
-# ddctx.to_pickle(savepath1+'ddctx.pkl')
-# dhctx.to_pickle(savepath1+'dhctx.pkl')
-dddtx = pd.read_pickle(savepath1+'dddtx.pkl')
-dhdtx = pd.read_pickle(savepath1+'dhdtx.pkl')
-dhctx = pd.read_pickle(savepath1+'dhctx.pkl')
-ddctx = pd.read_pickle(savepath1+'ddctx.pkl')
+dddtx = descriptive_frame(rddtx)
+dhdtx = descriptive_frame(rhdtx)
+ddctx = descriptive_frame(rdctx)
+dhctx = descriptive_frame(rhctx)
+dddtx.to_pickle(save_path_tables+'dddtx.pkl')
+dhdtx.to_pickle(save_path_tables+'dhdtx.pkl')
+ddctx.to_pickle(save_path_tables+'ddctx.pkl')
+dhctx.to_pickle(save_path_tables+'dhctx.pkl')
+dddtx = pd.read_pickle(save_path_tables+'dddtx.pkl')
+dhdtx = pd.read_pickle(save_path_tables+'dhdtx.pkl')
+dhctx = pd.read_pickle(save_path_tables+'dhctx.pkl')
+ddctx = pd.read_pickle(save_path_tables+'ddctx.pkl')
 
 #%%
 feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Sharpe','Trading period Sharpe', 'Number of trades', 'Roundtrip trades', 
@@ -254,7 +253,7 @@ feasible = ['Monthly profit', 'Annual profit' ,'Total profit',  'Annualized Shar
 aggtx = aggregate([dddtx, ddctx, dhdtx, dhctx], feasible, trades_nonzero=True, returns_nonzero=True)
 aggtx=standardize_results(aggtx)
 aggtx=beautify(aggtx)
-latexsave(aggtx, savepath1+'resultstablenotx')
+latexsave(aggtx, save_path_tables+'resultstablenotx')
 
 #%%
 #Hourly returns distribution table
@@ -273,7 +272,7 @@ for col in hdisttable.columns:
         hdisttable[col]=hdisttable[col].astype('float32')
         hdisttable[col] = hdisttable[col].map("{:.5f}".format)
 
-latexsave(hdisttable,savepath1+'hdist')
+latexsave(hdisttable,save_path_tables+'hdist')
 
 
 #%%
@@ -284,32 +283,32 @@ latexsave(hdisttable,savepath1+'hdist')
 # reshc=stoploss_results(methods=['coint'], freqs=['hourly'])
 #%%
 
-# stoploss_preprocess(resdd, 'desdd', savepath1)
-# stoploss_preprocess(resdc, 'desdc', savepath1)
-# stoploss_preprocess(reshd, 'deshd', savepath1)
-# stoploss_preprocess(reshc, 'deshc', savepath1)
+# stoploss_preprocess(resdd, 'desdd', save_path_tables)
+# stoploss_preprocess(resdc, 'desdc', save_path_tables)
+# stoploss_preprocess(reshd, 'deshd', save_path_tables)
+# stoploss_preprocess(reshc, 'deshc', save_path_tables)
 
 #%%
-desdd=pickle.load(open(savepath1+'desdd.pkl', 'rb'))
-desdc=pickle.load(open(savepath1+'desdc.pkl', 'rb'))
-deshd=pickle.load(open(savepath1+'deshd.pkl', 'rb'))
-deshc=pickle.load(open(savepath1+'deshc.pkl', 'rb'))
+desdd=pickle.load(open(save_path_tables+'desdd.pkl', 'rb'))
+desdc=pickle.load(open(save_path_tables+'desdc.pkl', 'rb'))
+deshd=pickle.load(open(save_path_tables+'deshd.pkl', 'rb'))
+deshc=pickle.load(open(save_path_tables+'deshc.pkl', 'rb'))
 
 tabledd=produce_stoploss_table(desdd, 'scenariosd', [60])
-latexsave(tabledd, savepath1+'stoplossdd')
+latexsave(tabledd, save_path_tables+'stoplossdd')
 
 tabledc=produce_stoploss_table(desdc, 'scenariosd', [60])
-latexsave(tabledc, savepath1+'stoplossdc')
+latexsave(tabledc, save_path_tables+'stoplossdc')
 
 
 tablehd=produce_stoploss_table(deshd, 'scenariosh', [10])
-latexsave(tablehd, savepath1+'stoplosshd')
+latexsave(tablehd, save_path_tables+'stoplosshd')
 
 tablehc=produce_stoploss_table(deshc, 'scenariosh', [10])
-latexsave(tablehc, savepath1+'stoplosshc')
+latexsave(tablehc, save_path_tables+'stoplosshc')
 
 concath = pd.concat([tablehd, tablehc], keys=['Distance', 'Cointegration'], axis=1)
 concatd = pd.concat([tabledd, tabledc], keys=['Distance', 'Cointegration'], axis=1)
-latexsave(concath, savepath1+'stoplossh')
-latexsave(concatd, savepath1+'stoplossd')
+latexsave(concath, save_path_tables+'stoplossh')
+latexsave(concatd, save_path_tables+'stoplossd')
 #%%

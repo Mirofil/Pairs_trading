@@ -14,7 +14,6 @@ from config import *
 from main import *
 #%%
 import pandas as pd 
-savepath = 'C:\\Users\\kawga\\Documents\\IES\\Bach\\code\\Pairs-trading\\graphs\\'
 #%%
 
 #%%
@@ -48,7 +47,7 @@ ax.legend(loc='upper left')
 ax2.legend()
 plt.grid(b=None)
 plt.tight_layout()
-plt.savefig(savepath+'pairexample', dpi=300)
+plt.savefig(save_path_graphs+'pairexample', dpi=300)
 
 
 #%%
@@ -71,7 +70,7 @@ plt.xlabel('Time')
 plt.ylabel('BTC')
 plt.tight_layout()
 plt.legend()
-plt.savefig(savepath+'binancehistory.png')
+plt.savefig(save_path_graphs+'binancehistory.png')
 plt.show()
 
 #%%
@@ -85,7 +84,7 @@ plt.ylabel('BTC/USDT')
 plt.legend()
 plt.tight_layout()
 
-plt.savefig(savepath+'btcprice.png')
+plt.savefig(save_path_graphs+'btcprice.png')
 
 #%%
 #HISTOGRAMS AND KDE OF RETURNS
@@ -131,7 +130,7 @@ plt.ylim(0,55)
 sns.kdeplot(rethc, linewidth=1)
 sns.kdeplot(rv.rvs(size=100000), linewidth=1, label='Normal', linestyle = '--', color='tab:red')
 
-plt.savefig(savepath+'retkdes', dpi=300)
+plt.savefig(save_path_graphs+'retkdes', dpi=300)
 #%%
 def retkde(fig,ax, freq, method):
     fig.sca(ax)
@@ -168,7 +167,7 @@ plt.title("")
 plt.ylabel("")
 
 plt.tight_layout()
-plt.savefig(savepath+'retqq', dpi =300)
+plt.savefig(save_path_graphs+'retqq', dpi =300)
 
 #%%
 #HOURLY DISTRIBUTION GRAPHS
@@ -200,7 +199,7 @@ ax.properties()['children'][1].set_linestyle('--')
 plt.ylabel('Average return')
 plt.legend()
 plt.tight_layout()
-plt.savefig(savepath+'hdist', dpi=300)
+plt.savefig(save_path_graphs+'hdist', dpi=300)
 #%%
 
 

@@ -55,7 +55,8 @@ def cointegration(df, confidence=0.05, num_of_processes=1):
         cointegrated = []
         split = np.array_split(list(itertools.combinations(pairs,2)),3)
         pool = mp.Pool(num_of_processes)
-        def worker(pairs, df = df, confidence=0.05):
+        def worker(pairs, confidence=0.05):
+            nonlocal df
             import statsmodels.api as sm
             import statsmodels.tsa.stattools as ts
             cointegrated=[]

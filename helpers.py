@@ -12,7 +12,6 @@ from contextlib import contextmanager
 import os
 import shutil
 import multiprocess as mp
-
 #%%
 def pick_range(y, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
@@ -27,20 +26,23 @@ def name_from_path(path):
     return name
 def path_from_name(name):
     """ Goes from stuff like [pair].csv to C:\Bach\concat_data\[pair].csv"""
-    path = data_folder + name + '.csv'
+    path = data_path + name + '.csv'
     return name
-def prefilter(paths, start=startdate, cutoff=0.7):
+def prefilter(paths, start=startdate,end=enddate, cutoff=0.7):
     """ Prefilters the time series so that we have only moderately old pairs (listed past startdate)
     and uses a volume percentile cutoff. The output is in array (pair, its volume) """
+    idx=pd.IndexSlice
     admissible = []
     for i in range(len(paths)):
         print(paths[i])
         df = pd.read_csv(paths[i])
         df.rename({'Opened':'Date'}, axis='columns', inplace=True)
         # filters out pairs that got listed past startdate
-        if pd.to_datetime(df.iloc[0].Date)<pd.to_datetime(start):
+        if (pd.to_datetime(df.iloc[0].Date)<pd.to_datetime(start)) and (pd.to_datetime(df.iloc[-1].Date) > pd.to_datetime(end)):
             #the Volume gets normalized to BTC before sorting
-            admissible.append([paths[i], (df.Volume*df.Close).sum()])
+            df=df.set_index('Date')
+            df=df.sort_index()
+            admissible.append([paths[i], (df.loc[idx[str(start):str(end)]].Volume*df.loc[idx[str(start):str(end)]].Close).sum()])
     #sort by Volume and pick upper percentile
     admissible.sort(key = lambda x: x[1])
     admissible=admissible[int(np.round(len(admissible)*cutoff)):]
@@ -50,7 +52,7 @@ def resample(df, freq='30T', start=startdate, fill=True):
     """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
     Close prices get last values, Volume gets summed. 
     Only indexes past startdate are returned to have a common start for all series 
-    (since they got listed at various dates"""
+    (since they got listed at various dates)"""
     df.index=pd.to_datetime(df.Date)
     # Close prices get resampled with last values, whereas Volume gets summed
     close = df.Close.resample(freq).last()
@@ -64,6 +66,7 @@ def resample(df, freq='30T', start=startdate, fill=True):
     newdf['logReturns'] = (np.log(newdf['Close'])-np.log(newdf['Close'].shift(1))).values
     newdf['Price']=newdf['logReturns'].cumsum()
     return newdf[newdf.index > pd.to_datetime(start)]
+
 def preprocess(paths,freq='60T', end = enddate, first_n = 15, start=startdate):
     """Finishes the preprocessing based on prefiltered paths. We filter out pairs that got delisted early
     (they need to go at least as far as enddate). Then all the eligible time series for pairs formation analysis
@@ -74,7 +77,10 @@ def preprocess(paths,freq='60T', end = enddate, first_n = 15, start=startdate):
     preprocessed = []
     for i in range(len(paths)):
         df = pd.read_csv(paths[i])
+        #The new Binance_fetcher API downloads Date as Opened instead..
+        df.rename({'Opened':'Date'}, axis='columns', inplace=True)
         df = resample(df, freq, start=start)
+        df = df.sort_index()
         #truncates the time series to a slightly earlier end date
         #because the last period is inhomogeneous due to pulling from API
         if df.index[-1] > pd.to_datetime(end):
@@ -227,7 +233,6 @@ def descriptive_stats(df, timeframe = 5, freq = 'daily', riskfree = 0.02, tradin
     monthlizer = 30/tradingdays
     riskfree = riskfree/annualizer
     for name, group in df.groupby(level=0):
-        #print(name)
         stats.loc[name, 'Mean']= group['Profit'].mean()
         stats.loc[name, 'Total profit']=group['Profit'].sum()
         stats.loc[name, 'Std']=group['Profit'].std()
@@ -268,78 +273,9 @@ def descriptive_stats(df, timeframe = 5, freq = 'daily', riskfree = 0.02, tradin
         if trades_nonzero == True:
             stats.loc[stats['Number of trades']== 0, ['Roundtrip trades', 'Avg length of position']]=None
     return stats
-def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=100, num_of_processes=1):
-    """ Fills in the Signals during timeframe period 
-    Outside of the trading period, it fills Formation and pastTrading"""
-    if num_of_processes > 1:
-        idx=pd.IndexSlice
-        pool = mp.Pool(num_of_processes)
-        split = []
-        for x in np.array_split(list(multidf.loc[idx[:, timeframe[0]:timeframe[1]], :].groupby(level=0)),num_of_processes):
-            for y in x:
-                split.append(y[1])
-        split = pd.concat(split)
-        split=split.loc[:, ['normSpread']]
-        def worker(multidf, timeframe=timeframe):
-            import pandas as pd
-            lazy_changes=[]
-            for name, df in multidf.loc[pd.IndexSlice[:, timeframe[0]:timeframe[1]], :].groupby(level=0):
-                df['Signals'] = None
-                #df.loc[mask,'Signals'] = True
-                index=df.index
-                #this is technicality because we truncate the DF to just trading period but 
-                #in the first few periods the signal generation needs to access prior values
-                #which would be None so we just make them adhoc like this
-                col = [None for x in range(lag+2)]
-                fill = 'None'
-                for i in range(len(df)):
-                    truei=i
-                    if i-lag<0:
-                        col.append(fill)
-                        continue
-                    if (df.loc[index[i-lag], 'normSpread']>stoploss)&(col[i+lag+1] in ['Short', 'keepShort']):
-                        fill = 'stopShortLoss'
-                        col.append(fill)
-                        fill = 'None'
-                        continue
-                    if (df.loc[index[i-lag], 'normSpread']<(-stoploss))&(col[i+lag+1] in ['Long', 'keepLong']):
-                        fill = 'stopLongLoss'
-                        col.append(fill)
-                        fill = 'None'
-                        continue
-                    if (df.loc[index[i-lag],'normSpread']>=threshold)&(df.loc[index[i-lag-1],'normSpread']<threshold)&(col[i+lag-1] not in ["keepShort"])&(col[truei+lag+1] not in ['Short', 'keepShort']):
-                        fill = "Short"
-                        col.append(fill)
-                        fill = "keepShort"
-                        continue
-                    elif (df.loc[index[i-lag],'normSpread']<=0)&(df.loc[index[i-lag-1],'normSpread']>0) & (col[i+lag+1] in ["Short", "keepShort"]):
-                        fill = "sellShort"
-                        col.append(fill)
-                        fill = "None"
-                        continue
-                    elif ((df.loc[index[i-lag],'normSpread']<=(-threshold))&(df.loc[index[i-lag-1],'normSpread']>(-threshold)))& (col[i+lag-1] not in ["keepLong"])&(col[truei+lag+1] not in ['Long', 'keepLong']):
-                        #print(i, col, name, col[truei+lag]!='Long', truei)
-                        fill = "Long"
-                        col.append(fill)
-                        fill = "keepLong"
-                        continue
-                    elif (df.loc[index[i-lag],'normSpread']>=0)&(df.loc[index[i-lag-1],'normSpread']<0) & (col[i+lag+1] in ["Long", "keepLong"]):
-                        fill = "sellLong"
-                        col.append(fill)
-                        fill = "None"
-                        continue
-                    col.append(fill)
-                col = col[(lag+2):-1]
-                col.append("Sell")
-                lazy_changes.append([name, col, df.index])
-                #df['Signals'] = pd.Series(col[1:], index=df.index)
-            return lazy_changes
-        lazy_changes = pool.map(worker, split)
-        flat_lazy_changes = [item for sublist in lazy_changes for item in sublist]
-        for name, col, index in flat_lazy_changes:
-            multidf.loc[pd.IndexSlice[name, timeframe[0]:timeframe[1]], 'Signals'] = pd.Series(col, index=index)        
-        
-    else:
+
+def signals_worker(multidf, timeframe=5, formation=5, threshold=2,lag=0, stoploss=100, num_of_processes=1):
+        global enddate
         idx=pd.IndexSlice
         for name, df in multidf.loc[pd.IndexSlice[:, timeframe[0]:timeframe[1]], :].groupby(level=0):
             df['Signals'] = None
@@ -395,10 +331,33 @@ def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=
         multidf.loc[idx[:, formation[0]:formation[1]], 'Signals']=multidf.loc[idx[:, formation[0]:formation[1]], 'Signals'].fillna(value='Formation')
         multidf.loc[idx[:, startdate:formation[0]], 'Signals']=multidf.loc[idx[:, startdate:formation[0]], 'Signals'].fillna(value='preFormation')
         #multidf['Signals'] = multidf['Signals'].fillna(value='Formation')
-    return multidf
+        return multidf
+def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=100, num_of_processes=1):
+    """ Fills in the Signals during timeframe period 
+    Outside of the trading period, it fills Formation and pastTrading"""
+    if num_of_processes == 1:
 
-def load_results(name, methods):
-    base = 'C:\\Bach\\results\\'
+        # global enddate
+        return signals_worker(multidf, timeframe=timeframe, formation =formation, threshold=threshold, lag=lag)
+    if num_of_processes > 1:
+        #Those imports are necessary because of the nested structure. it wont be able to access those things from the global namespace so we need to import again
+        # global enddate
+        # import multiprocess as mp
+        if len(multidf.index.unique(level=0))<num_of_processes:
+            num_of_processes = len(multidf.index.unique(level=0))
+        pool=mp.Pool(num_of_processes, initargs=(enddate,pd))
+        split = np.array_split(multidf.index.unique(level=0), num_of_processes)
+        split = [multidf.loc[x] for x in split]
+        #Im not sure what I was doing here to be honest..
+        args_dict = {'trading':timeframe, 'formation':formation, 'threshold':threshold, 'lag':lag, 'stoploss':stoploss, 'num_of_processes':num_of_processes}
+        args = [args_dict['trading'], args_dict['formation'], args_dict['threshold'], args_dict['lag'], args_dict['stoploss'], args_dict['num_of_processes']]
+        full_args = [[split[i], *args] for i in range(len(split))]
+        results = pool.starmap(signals_worker, full_args)
+        results=pd.concat(results)
+        pool.close()
+        pool.join()
+        return results
+def load_results(name, methods, base='results\\'):
     path = base + name + '\\'
     files = os.listdir(path)
     dfs = []
@@ -453,7 +412,7 @@ def summarize(df, index):
     res.loc['Std']=df.std()
     res.loc['Max']=df.max()
     res.loc['Min']=df.min()
-    jb = tatsmodels.stats.stattools.jarque_beras(df.dropna().values)
+    jb = statsmodels.stats.stattools.jarque_beras(df.dropna().values)
     res.loc['Jarque-Bera p-value'] = jb[1]
     res.loc['Kurtosis']=jb[3]
     res.loc['Skewness']=jb[2]
