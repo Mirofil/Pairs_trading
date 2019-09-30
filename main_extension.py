@@ -38,8 +38,8 @@ trading = (formation[1], formation[1]+relativedelta(days=1))
 x=np.load('NEWprefiltered0_7.npy')
 
 #%%#
-# y=preprocess(x[:,0], first_n=0, freq='1T')
-# y.to_pickle(version+'NEWpreprocessedT0_7.pkl')
+y=preprocess(x[:,0], first_n=0, freq='1T')
+y.to_pickle(version+'NEWpreprocessedT0_7.pkl')
 y=pd.read_pickle('NEWpreprocessedT0_7.pkl')
 
 # #%%
