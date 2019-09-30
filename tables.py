@@ -12,14 +12,13 @@ from distancemethod import *
 from helpers import *
 from cointmethod import *
 from config import *
-from main import *
 from itertools import zip_longest
 from itertools import zip_longest
 from helpers import beautify
 import pickle
 #%%
 #DF INTEGRATIONS
-y1=pd.read_pickle('preprocessedD0_0.pkl')
+#y1=pd.read_pickle('preprocessedD0_0.pkl')
 y2=pd.read_pickle('preprocessedD0_7.pkl')
 options = ['c', 'ct', 'ctt', 'nc']
 match = {'c':'$\mu$', 'ct':'$\mu + t$', 'ctt':'$\mu + t + t^2$', 'nc':'neither'}
@@ -34,7 +33,7 @@ latexsave(results, save_path_tables+'unitroots')
 #LIST OF PAIRS
 y1=pd.read_pickle('preprocessedD0_0.pkl')
 y2=pd.read_pickle('preprocessedD0_7.pkl')
-files = os.listdir(data_folder)
+files = os.listdir(data_path)
 #we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
 #it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
 paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
@@ -128,10 +127,11 @@ latexsave(corr_appendix, save_path_tables+'distcorrs_hourly')
 latexsave(cis, save_path_tables+'corrcis')
 #%%
 #RETURNS NORMALITY?
-rdd = load_results('scenario1', 'dist')
-rhd = load_results('scenario3', 'dist')
-rdc = load_results('scenario1', 'coint')
-rhc = load_results('scenario3', 'coint')
+newbase='results\\'
+rdd = load_results('scenario1', 'dist', newbase)
+rhd = load_results('scenario3', 'dist', newbase)
+rdc = load_results('scenario1', 'coint', newbase)
+rhc = load_results('scenario3', 'coint', newbase)
 retdd = rdd['Profit']
 rethd = rhd['Profit']
 retdc = rdc['Profit']
@@ -161,10 +161,11 @@ latexsave(df, save_path_tables+'retdist')
 
 #%%
 #GIANT RESULT TABLE
-rdd = load_results('scenario1', 'dist')
-rhd = load_results('scenario3', 'dist')
-rdc = load_results('scenario1', 'coint')
-rhc = load_results('scenario3', 'coint')
+newbase='NEWresults\\'
+rdd = load_results('scenario1', 'dist', newbase)
+rhd = load_results('scenario3', 'dist', newbase)
+rdc = load_results('scenario1', 'coint', newbase)
+rhc = load_results('scenario3', 'coint', newbase)
 ddd = descriptive_frame(rdd)
 dhd = descriptive_frame(rhd)
 ddc = descriptive_frame(rdc)
@@ -173,7 +174,6 @@ ddd.to_pickle(save_path_tables+'ddd.pkl')
 dhd.to_pickle(save_path_tables+'dhd.pkl')
 ddc.to_pickle(save_path_tables+'ddc.pkl')
 dhc.to_pickle(save_path_tables+'dhc.pkl')
-save_path_tables='tables\\'
 ddd = pd.read_pickle(save_path_tables+'ddd.pkl')
 dhd = pd.read_pickle(save_path_tables+'dhd.pkl')
 dhc = pd.read_pickle(save_path_tables+'dhc.pkl')
@@ -190,10 +190,11 @@ latexsave(agg, save_path_tables+'resultstable')
 
 #%%
 #NOLAG TABLE
-rhdnl = load_results('scenario3_nolag', 'dist')
-rddnl = load_results('scenario1_nolag', 'dist')
-rdcnl = load_results('scenario1_nolag', 'coint')
-rhcnl = load_results('scenario3_nolag', 'coint')
+newbase='NEWresults\\'
+rhdnl = load_results('scenario3_nolag', 'dist',newbase)
+rddnl = load_results('scenario1_nolag', 'dist', newbase)
+rdcnl = load_results('scenario1_nolag', 'coint', newbase)
+rhcnl = load_results('scenario3_nolag', 'coint', newbase)
 dddnl = descriptive_frame(rddnl)
 dhdnl = descriptive_frame(rhdnl)
 ddcnl = descriptive_frame(rdcnl)

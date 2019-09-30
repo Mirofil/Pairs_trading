@@ -10,4 +10,4 @@ data_path = version+'concatenated_price_data\\'
 save = version+'results\\'
 save_path_graphs = version+'graphs\\'
 save_path_tables = version+'tables\\'
-NUMOFPROCESSES=3
+NUMOFPROCESSES=35

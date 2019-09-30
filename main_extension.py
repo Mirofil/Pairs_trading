@@ -1,7 +1,9 @@
 #%%
+import os
+# os.environ['OPENBLAS_NUM_THREADS'] = '40'
+# os.environ['MKL_NUM_THREADS'] = '40'
 import numpy as np 
 import pandas as pd 
-import os
 import datetime
 import matplotlib.pyplot as plt
 import timeit
@@ -17,18 +19,18 @@ from cointmethod import *
 from config import *
 from simulation import *
 from simulations_database import *
-formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,5,1]))
-trading = (formation[1], formation[1]+relativedelta(months=2))
+formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,3]))
+trading = (formation[1], formation[1]+relativedelta(days=1))
 
 #%%#
 #load all the time series retrieved
-files = os.listdir(data_path)
-#we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
-#it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
-paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
-names = [file.partition('.')[0] for file in files]
-df = pd.read_csv(paths[0])
-idx=pd.IndexSlice
+# files = os.listdir(data_path)
+# #we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
+# #it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
+# paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
+# names = [file.partition('.')[0] for file in files]
+# df = pd.read_csv(paths[0])
+# idx=pd.IndexSlice
 #%%#
 #EXTENSION needs cutoff 0.0 because we only download those that gets through cutoff 0.7 anyways..
 # x=prefilter(paths, cutoff=0.7)
@@ -37,11 +39,11 @@ x=np.load('NEWprefiltered0_7.npy')
 
 #%%#
 # y=preprocess(x[:,0], first_n=0, freq='1T')
-# y.to_pickle(version+'preprocessedT0_7.pkl')
+# y.to_pickle(version+'NEWpreprocessedT0_7.pkl')
 y=pd.read_pickle('NEWpreprocessedT0_7.pkl')
 
-#%%
-#13s per iteration (local)
+# #%%
+# #13s per iteration (local)
 simulate(scenario1)
 #16s per iteration (local)
 simulate(scenario1_coint)
@@ -58,32 +60,37 @@ simulate(scenario2_coint)
 simulate(scenario4)
 simulate(scenario4_coint)
 
-#MINUTE
-simulate(scenario5)
+# #MINUTE
+simulate(scenario5, num_of_processes=35)
+simulate(scenario6, num_of_processes=35)
+simulate(scenario5_nolag, num_of_processes=35)
 
-#%%
+simulate(scenario5_coint, num_of_processes=35)
+simulate(scenario6_coint, num_of_processes=35)
+simulate(scenario5_coint_nolag, num_of_processes=35)
 
 #%%
 #COINTEGRATION TESTING
 start=datetime.datetime.now()
 coint_head = pick_range(y, formation[0], formation[1])
-k=cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=1)
+# find_integrated(coint_head, num_of_processes=1)
+k=cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=40)
 end=datetime.datetime.now()
 print('Cointegrations were found in: ' + str(end-start))
 #%%
-y=pick_range(y, formation[0], trading[1])
+short_y=pick_range(y, formation[0], trading[1])
 start=datetime.datetime.now()
-coint_spreads = coint_spread(y, [item[0] for item in k], timeframe=formation, betas = [item[1] for item in k])
+coint_spreads = coint_spread(short_y, [item[0] for item in k], timeframe=formation, betas = [item[1] for item in k])
 coint_spreads.sort_index(inplace=True)
 end=datetime.datetime.now()
 print('Cointegrations spreads were done in: ' + str(end-start))
 #%%
 start=datetime.datetime.now()
-num_of_processes=3
+num_of_processes=40
 #pool = mp.Pool(num_of_processes)
 split = np.array_split(coint_spreads, num_of_processes)
 split = [pd.DataFrame(x) for x in split]
-args_dict = {'trading':trading, 'formation':formation, 'threshold':2, 'lag':1, 'stoploss':100, 'num_of_processes':3}
+args_dict = {'trading':trading, 'formation':formation, 'threshold':2, 'lag':1, 'stoploss':100, 'num_of_processes':num_of_processes}
 args = [args_dict['trading'], args_dict['formation'], args_dict['threshold'], args_dict['lag'], args_dict['stoploss'], args_dict['num_of_processes']]
 full_args = [[split[i], *args] for i in range(len(split))]
 # results = pool.starmap(signals, full_args)
@@ -122,8 +129,10 @@ head = pick_range(y, formation[0], formation[1])
 distances = distance(head, num = 20)
 end=datetime.datetime.now()
 print('Distances were found in: ' + str(end-start))
+#%%
 start=datetime.datetime.now()
-spreads=distance_spread(y,distances[2], formation)
+short_y = pick_range(y, formation[0], trading[1])
+spreads=distance_spread(short_y,distances[2], formation)
 end=datetime.datetime.now()
 print('Distance spreads were found in: ' + str(end-start))
 # this is some technical detail needed later?
@@ -135,9 +144,15 @@ weights_from_signals(dist_signal, cost=0.003)
 end=datetime.datetime.now()
 print('Distance signals were found in: ' + str(end-start))
 #%%
+start=datetime.datetime.now()
 propagate_weights(dist_signal, formation)
+end=datetime.datetime.now()
+print('Weight propagation was done in: ' + str(end-start))
 #%%
+start=datetime.datetime.now()
 calculate_profit(dist_signal, cost=0.003)
+end=datetime.datetime.now()
+print('Profit calculation was done in: ' + str(end-start))
 #%%
 dist_signal.to_pickle('test_dist.pkl')
 

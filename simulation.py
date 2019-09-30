@@ -7,7 +7,7 @@ from config import *
 import datetime
 num_of_processes=NUMOFPROCESSES
 #%%
-def simulate(params):
+def simulate(params, num_of_processes = num_of_processes):
     #freq,lag,txcost,training_delta, cutoff,formation_delta, start, end, jump, methods, dist_num, scenario,truncate=False,redo_x=False, redo_y=False
     freq,lag,txcost,training_delta,cutoff,formation_delta,start,end,jump, methods, dist_num, threshold,stoploss,scenario=params.values()
     global data_path
@@ -36,7 +36,7 @@ def simulate(params):
         print('Starting: ' + str(formation) + ' at '+ str(datetime.datetime.now()))
         if (trading[1]>end):
             if truncate == True:
-                trading=(trading[0],enddate)
+                trading=(trading[0],end)
             else:
                 break
         if (trading[1]<formation[1]):
@@ -56,7 +56,7 @@ def simulate(params):
             y=pd.read_pickle(save +version+'preprocessed'+str_freq+ str_cutoff+'.pkl')
         if 'coint' in methods:
             coint_head = pick_range(y, formation[0], formation[1])
-            k=cointegration(find_integrated(coint_head))
+            k=cointegration(find_integrated(coint_head), num_of_processes=num_of_processes)
             short_y=pick_range(y, formation[0], trading[1])
             coint_spreads = coint_spread(short_y, [item[0] for item in k], timeframe=formation, betas = [item[1] for item in k])
             coint_spreads.sort_index(inplace=True)

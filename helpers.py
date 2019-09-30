@@ -12,6 +12,7 @@ from contextlib import contextmanager
 import os
 import shutil
 import multiprocess as mp
+import re
 #%%
 def pick_range(y, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
@@ -79,6 +80,7 @@ def preprocess(paths,freq='60T', end = enddate, first_n = 15, start=startdate):
         df = pd.read_csv(paths[i])
         #The new Binance_fetcher API downloads Date as Opened instead..
         df.rename({'Opened':'Date'}, axis='columns', inplace=True)
+        df=df.sort_index()
         df = resample(df, freq, start=start)
         df = df.sort_index()
         #truncates the time series to a slightly earlier end date
@@ -345,7 +347,7 @@ def signals(multidf, timeframe=5, formation = 5, threshold=2, lag = 0, stoploss=
         # import multiprocess as mp
         if len(multidf.index.unique(level=0))<num_of_processes:
             num_of_processes = len(multidf.index.unique(level=0))
-        pool=mp.Pool(num_of_processes, initargs=(enddate,pd))
+        pool=mp.Pool(num_of_processes)
         split = np.array_split(multidf.index.unique(level=0), num_of_processes)
         split = [multidf.loc[x] for x in split]
         #Im not sure what I was doing here to be honest..
@@ -361,10 +363,15 @@ def load_results(name, methods, base='results\\'):
     path = base + name + '\\'
     files = os.listdir(path)
     dfs = []
-    for file in files:
-        if methods in file:
-            df = pd.read_pickle(path+file)
-            dfs.append(df)
+    # for file in files:
+    for i in range(len(files)):
+        for file in files:
+            rg = r'^'+str(len(dfs))+'[a-z]'
+            if methods in file and re.match(rg,file):
+                print(file)
+                df = pd.read_pickle(path+file)
+                dfs.append(df)
+                continue
     return pd.concat(dfs, keys=range(len(dfs)))
 
 def infer_periods(df):
