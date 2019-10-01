@@ -20,8 +20,8 @@ from config import *
 from simulation import *
 from simulations_database import *
 pd.options.mode.chained_assignment = None
-formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,3]))
-trading = (formation[1], formation[1]+relativedelta(days=1))
+formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,7]))
+trading = (formation[1], formation[1]+relativedelta(days=3))
 
 #%%#
 #load all the time series retrieved
@@ -39,11 +39,11 @@ trading = (formation[1], formation[1]+relativedelta(days=1))
 x=np.load('NEWprefiltered0_7.npy')
 
 #%%#
-y=preprocess(x[:,0], first_n=0, freq='1T')
-y.to_pickle(version+'NEWpreprocessedT0_7.pkl')
-y=pd.read_pickle('NEWpreprocessedT0_7.pkl')
+# y=preprocess(x[:,0], first_n=0, freq='5T')
+# y.to_pickle(version+'preprocessed5T0_7.pkl')
+y=pd.read_pickle('NEWpreprocessed5T0_7.pkl')
 
-# #%%
+#%%
 # #13s per iteration (local)
 simulate(scenario1)
 #16s per iteration (local)
@@ -70,12 +70,21 @@ simulate(scenario5_coint, num_of_processes=35)
 simulate(scenario6_coint, num_of_processes=35)
 simulate(scenario5_coint_nolag, num_of_processes=35)
 
+#5 MINUTE
+simulate(scenario7, num_of_processes=3)
+simulate(scenario8, num_of_processes=3)
+simulate(scenario7_nolag, num_of_processes=3)
+
+simulate(scenario7_coint, num_of_processes=35)
+simulate(scenario8_coint, num_of_processes=35)
+simulate(scenario7_coint_nolag, num_of_processes=35)
+
 #%%
 #COINTEGRATION TESTING
 start=datetime.datetime.now()
 coint_head = pick_range(y, formation[0], formation[1])
 # find_integrated(coint_head, num_of_processes=1)
-k=cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=40)
+k=cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=3)
 end=datetime.datetime.now()
 print('Cointegrations were found in: ' + str(end-start))
 #%%
@@ -87,7 +96,7 @@ end=datetime.datetime.now()
 print('Cointegrations spreads were done in: ' + str(end-start))
 #%%
 start=datetime.datetime.now()
-num_of_processes=40
+num_of_processes=3
 #pool = mp.Pool(num_of_processes)
 split = np.array_split(coint_spreads, num_of_processes)
 split = [pd.DataFrame(x) for x in split]

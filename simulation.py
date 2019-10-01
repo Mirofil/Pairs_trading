@@ -20,7 +20,7 @@ def simulate(params, num_of_processes = num_of_processes):
     paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
     names = [file.partition('.')[0] for file in files]
     str_cutoff = str(cutoff).replace('.', '_')
-    str_freq = str(freq[1])
+    str_freq = str(freq)
     formationdelta = relativedelta(months=formation_delta[0], days=formation_delta[1] ,hours=formation_delta[2])
     trainingdelta = relativedelta(months=training_delta[0], days = training_delta[1], hours = training_delta[2])
     jumpdelta = relativedelta(months=jump[0], days=jump[1], hours=jump[2])
@@ -68,7 +68,7 @@ def simulate(params, num_of_processes = num_of_processes):
             calculate_profit(coint_signal, cost=txcost)
             #np.save(save+str(i)+'coint_signal', coint_signal)
             #coint_signal.to_pickle(save+scenario+'\\'+str(i)+'coint_signal.pkl')
-            coint_signal.to_pickle(save+scenario+'/'+str(i)+'coint_signal.pkl')
+            coint_signal.to_pickle(save+scenario+os.sep+str(i)+'coint_signal.pkl')
         if 'dist' in methods:
             head = pick_range(y, formation[0], formation[1])
             distances = distance(head, num = dist_num)
@@ -81,7 +81,7 @@ def simulate(params, num_of_processes = num_of_processes):
             calculate_profit(dist_signal, cost=txcost) 
             #np.save(save+scenario+'\\'+str(i)+'dist_signal', dist_signal)
             #dist_signal.to_pickle(save+scenario+'\\'+str(i)+'dist_signal.pkl')
-            dist_signal.to_pickle(save+scenario+'/'+str(i)+'dist_signal.pkl')
+            dist_signal.to_pickle(save+scenario+os.sep+str(i)+'dist_signal.pkl')
         if trading[1]==enddate:
             break
         

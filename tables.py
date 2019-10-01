@@ -161,7 +161,7 @@ latexsave(df, save_path_tables+'retdist')
 
 #%%
 #GIANT RESULT TABLE
-newbase='NEWresults\\'
+newbase='results\\'
 rdd = load_results('scenario1', 'dist', newbase)
 rhd = load_results('scenario3', 'dist', newbase)
 rdc = load_results('scenario1', 'coint', newbase)

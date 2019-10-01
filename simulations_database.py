@@ -49,3 +49,13 @@ scenario6_coint={"freq":"1T",'lag':1, 'txcost':0.000, 'training_delta':[0,1,0], 
 
 scenario5_coint_nolag={"freq":"1T",'lag':0, 'txcost':0.003, 'training_delta':[0,1,0], 'cutoff':0.7, 'formation_delta':[0,2,0], 'start':starting_date, 'end':ending_date, 'jump':[0,2,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario5_nolag"}
 scenario5_nolag={"freq":"1T",'lag':0, 'txcost':0.003, 'training_delta':[0,1,0], 'cutoff':0.7, 'formation_delta':[0,2,0], 'start':starting_date, 'end':ending_date, 'jump':[0,2,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario5_nolag"}
+
+
+#5MINUTE
+scenario7={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7"}
+scenario8={"freq":"5T",'lag':1, 'txcost':0.000, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario8'}
+scenario7_coint={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7"}
+scenario8_coint={"freq":"5T",'lag':1, 'txcost':0.000, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario8'}
+
+scenario7_coint_nolag={"freq":"5T",'lag':0, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_nolag"}
+scenario7_nolag={"freq":"5T",'lag':0, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_nolag"}
