@@ -6,6 +6,7 @@ import os
 from config import *
 import datetime
 num_of_processes=NUMOFPROCESSES
+pd.options.mode.chained_assignment = None
 #%%
 def simulate(params, num_of_processes = num_of_processes):
     #freq,lag,txcost,training_delta, cutoff,formation_delta, start, end, jump, methods, dist_num, scenario,truncate=False,redo_x=False, redo_y=False
@@ -66,7 +67,8 @@ def simulate(params, num_of_processes = num_of_processes):
             propagate_weights(coint_signal, formation)
             calculate_profit(coint_signal, cost=txcost)
             #np.save(save+str(i)+'coint_signal', coint_signal)
-            coint_signal.to_pickle(save+scenario+'\\'+str(i)+'coint_signal.pkl')
+            #coint_signal.to_pickle(save+scenario+'\\'+str(i)+'coint_signal.pkl')
+            coint_signal.to_pickle(save+scenario+'/'+str(i)+'coint_signal.pkl')
         if 'dist' in methods:
             head = pick_range(y, formation[0], formation[1])
             distances = distance(head, num = dist_num)
@@ -78,8 +80,8 @@ def simulate(params, num_of_processes = num_of_processes):
             propagate_weights(dist_signal, formation)
             calculate_profit(dist_signal, cost=txcost) 
             #np.save(save+scenario+'\\'+str(i)+'dist_signal', dist_signal)
-            dist_signal.to_pickle(save+scenario+'\\'+str(i)+'dist_signal.pkl')
-            
+            #dist_signal.to_pickle(save+scenario+'\\'+str(i)+'dist_signal.pkl')
+            dist_signal.to_pickle(save+scenario+'/'+str(i)+'dist_signal.pkl')
         if trading[1]==enddate:
             break
         

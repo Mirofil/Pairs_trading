@@ -19,6 +19,7 @@ from cointmethod import *
 from config import *
 from simulation import *
 from simulations_database import *
+pd.options.mode.chained_assignment = None
 formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,3]))
 trading = (formation[1], formation[1]+relativedelta(days=1))
 
