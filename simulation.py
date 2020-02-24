@@ -89,8 +89,8 @@ def stoploss(freqs = ['daily']):
     global save
     thresh = [1,2,3]
     stoploss = [2,3,4,5,6]
-    scenariod={"freq":"1D",'lag':1, 'txcost':0.003, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':datetime.date(*[2018,1,1]), 'end':datetime.date(*[2019,1,1]), 'jump':[1,0,0], 'methods':['dist', 'coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenariosd12"}
-    scenarioh={"freq":"1H",'lag':1, 'txcost':0.003, 'training_delta':[0,10,0], 'cutoff':0.7, 'formation_delta':[0,20,0], 'start':datetime.date(*[2018,1,1]), 'end':datetime.date(*[2019,1,1]), 'jump':[0,10,0], 'methods':['dist', 'coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenariosh12'}
+    scenariod={"freq":"1D",'lag':1, 'txcost':0.003, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':datetime.date(*[2018,1,1]), 'end':datetime.date(*[2019,9,1]), 'jump':[1,0,0], 'methods':['dist', 'coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenariosd12"}
+    scenarioh={"freq":"1H",'lag':1, 'txcost':0.003, 'training_delta':[0,10,0], 'cutoff':0.7, 'formation_delta':[0,20,0], 'start':datetime.date(*[2018,1,1]), 'end':datetime.date(*[2019,9,1]), 'jump':[0,10,0], 'methods':['dist', 'coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenariosh12'}
     if 'daily' in freqs:
         for i in range(len(thresh)):
             for j in range(len(stoploss)):

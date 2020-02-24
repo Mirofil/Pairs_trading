@@ -1,7 +1,5 @@
 #%%
 import os
-# os.environ['OPENBLAS_NUM_THREADS'] = '40'
-# os.environ['MKL_NUM_THREADS'] = '40'
 import numpy as np 
 import pandas as pd 
 import datetime
@@ -79,6 +77,9 @@ simulate(scenario7_coint, num_of_processes=35)
 simulate(scenario8_coint, num_of_processes=35)
 simulate(scenario7_coint_nolag, num_of_processes=35)
 
+
+#STOPLOSS
+stoploss()
 #%%
 #COINTEGRATION TESTING
 start=datetime.datetime.now()

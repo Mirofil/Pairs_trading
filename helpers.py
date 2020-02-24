@@ -412,14 +412,16 @@ def find_same(r1, r2):
         percentages.append(percentage)
     return pd.Series(percentages).mean()
 
-def summarize(df, index):
+def summarize(df, index, mean=False):
     """ Summarizes the return distribution"""
+    if mean == True:
+        df = df.astype('float32').groupby(level=0).mean()
     res = pd.DataFrame(index=index, columns = [0])
     res.loc['Mean']=df.mean()
     res.loc['Std']=df.std()
     res.loc['Max']=df.max()
     res.loc['Min']=df.min()
-    jb = statsmodels.stats.stattools.jarque_beras(df.dropna().values)
+    jb = statsmodels.stats.stattools.jarque_bera(df.dropna().values)
     res.loc['Jarque-Bera p-value'] = jb[1]
     res.loc['Kurtosis']=jb[3]
     res.loc['Skewness']=jb[2]
@@ -430,7 +432,6 @@ def summarize(df, index):
 
 def aggregate(dfs, feasible, freqs=[60,60,10,10], standard=True, returns_nonzero=False, trades_nonzero=False):
     temp = []
-
     for i in range(len(dfs)):
         df=dfs[i]
         numnom = len(df.index.get_level_values(level=1))/(df.index[-1][0]+1)
@@ -452,7 +453,7 @@ def aggregate(dfs, feasible, freqs=[60,60,10,10], standard=True, returns_nonzero
     concated = pd.concat(temp, axis=1)
     if standard==True:
         cols = pd.MultiIndex.from_product([['Daily', 
-        'Hourly'], ['Distance', 'Cointegration']])
+        'Hourly', '5-Minute'], ['Dist.', 'Coint.']])
         concated.columns = cols
     return concated
 
@@ -500,14 +501,14 @@ def hdist(df):
     res.index.rename('Hour', inplace=True)
     return res
 
-def stoploss_results(methods = ['dist'], freqs = ['daily'], thresh = ['1','2','3'], stoploss=['2','3','4','5','6']):
+def stoploss_results(newbase, methods = ['dist'], freqs = ['daily'], thresh = ['1','2','3'], stoploss=['2','3','4','5','6']):
     res = {}
-    save = 'C:\\Bach\\results\\'
+    global save
     for f in os.listdir(save):
         if ('dist' in methods) and ('scenarios' in f) and (f[-2] in thresh) and (f[-1] in stoploss) and (f[-3] in [x[0] for x in freqs]):
-            res[f]=load_results(f, 'dist')
+            res[f]=load_results(f, 'dist', newbase)
         if ('coint' in methods) and ('scenarios' in f) and (f[-2] in thresh) and (f[-1] in stoploss) and (f[-3] in [x[0] for x in freqs]):
-            res[f]=load_results(f, 'coint')
+            res[f]=load_results(f, 'coint', newbase)
 
     return res
 
@@ -561,9 +562,9 @@ def produce_stoploss_table(des, prefix, freqs):
     df = filter_nonsense(df)
     return df
 
-def standardize_results(df, drop=True):
-    df.loc['Avg length of position']=df.loc['Avg length of position'].astype('float32')*[1,1,1/24,1/24]
-    df.loc['Number of trades']=df.loc['Number of trades'].astype('float32')*[1/2,1/2,3,3]
+def standardize_results(df,poslen=[1,1,1/24,1/24], numtrades = [1/2,1/2,3,3],drop=True):
+    df.loc['Avg length of position']=df.loc['Avg length of position'].astype('float32')*poslen
+    df.loc['Number of trades']=df.loc['Number of trades'].astype('float32')*numtrades
     df=df.rename({'Avg length of position':'Length of position (days)', 'Number of trades':'Monthly number of trades'})
     if drop==True:
         df=df.drop(['Trading period profit', 'Trading period Sharpe', 'Annual profit', 'Total profit'], errors='ignore')

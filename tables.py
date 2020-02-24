@@ -161,11 +161,12 @@ latexsave(df, save_path_tables+'retdist')
 
 #%%
 #GIANT RESULT TABLE
-newbase='results\\'
+newbase='NEWresults\\'
 rdd = load_results('scenario1', 'dist', newbase)
 rhd = load_results('scenario3', 'dist', newbase)
 rdc = load_results('scenario1', 'coint', newbase)
 rhc = load_results('scenario3', 'coint', newbase)
+
 ddd = descriptive_frame(rdd)
 dhd = descriptive_frame(rhd)
 ddc = descriptive_frame(rdc)
@@ -190,7 +191,7 @@ latexsave(agg, save_path_tables+'resultstable')
 
 #%%
 #NOLAG TABLE
-newbase='NEWresults\\'
+newbase='results\\'
 rhdnl = load_results('scenario3_nolag', 'dist',newbase)
 rddnl = load_results('scenario1_nolag', 'dist', newbase)
 rdcnl = load_results('scenario1_nolag', 'coint', newbase)
