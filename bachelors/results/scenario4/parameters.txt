@@ -1,0 +1,1 @@
+{'freq': '1H', 'lag': 1, 'txcost': 0.0, 'training_delta': [0, 10, 0], 'cutoff': 0.7, 'formation_delta': [0, 20, 0], 'start': datetime.date(2018, 1, 1), 'end': datetime.date(2019, 1, 1), 'jump': [0, 10, 0], 'methods': ['coint'], 'dist_num': 20, 'threshold': 2, 'stoploss': 100, 'name': 'scenario4'}
