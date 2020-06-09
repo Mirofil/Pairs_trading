@@ -39,6 +39,19 @@ def corrs(df):
             )
     return (arr, ps)
 
+def infer_periods(df):
+    """Auto detects the Formation and Trading periods
+    Works even with MultiIndexed since the periods are the same across all pairs"""
+    mask1 = ~(
+        (df["Signals"] == "Formation")
+        | (df["Signals"] == "pastFormation")
+        | (df["Signals"] == "preFormation")
+    )
+    mask2 = df["Signals"] == "Formation"
+    trading = (df.index[np.nonzero(mask1)[0][0]], df.index[np.nonzero(mask1)[0][-1]])
+    formation = (df.index[np.nonzero(mask2)[0][0]], df.index[np.nonzero(mask2)[0][-1]])
+    return {"formation": formation, "trading": trading}
+
 def descriptive_stats(
     df,
     timeframe=5,

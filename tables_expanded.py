@@ -13,9 +13,10 @@ from helpers import *
 from cointmethod import *
 from config import *
 from itertools import zip_longest
-from itertools import zip_longest
-from helpers import beautify
+from formatting import beautify
 import pickle
+
+from analysis import descriptive_stats, descriptive_frame
 #%%
 #DF INTEGRATIONS
 #y1=pd.read_pickle('preprocessedD0_0.pkl')
@@ -164,7 +165,7 @@ latexsave(df, save_path_tables+'retdist')
 
 #%%
 #GIANT RESULT TABLE
-newbase='NEWresults\\'
+newbase='testing'
 rdd = load_results('scenario1', 'dist', newbase)
 rhd = load_results('scenario3', 'dist', newbase)
 rdc = load_results('scenario1', 'coint', newbase)
