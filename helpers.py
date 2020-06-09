@@ -19,23 +19,14 @@ from config import *
 from config import data_path
 
 
-#%%
-def pick_range(y, start, end):
-    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
-    past_start = y.index.levels[1] > pd.to_datetime(start)
-    before_end = y.index.levels[1] <= pd.to_datetime(end)
-    mask = (past_start) & (before_end)
-    return y.groupby(level=0).apply(lambda x: x.loc[mask]).droplevel(level=0)
-
-
-def name_from_path(path:str):
+def name_from_path(path: str):
     """ Goes from stuff like C:\Bach\concat_data\[pair].csv to [pair]"""
     name = os.path.split(path)[1]
     name = os.path.splitext(name)[0]
     return name
 
 
-def path_from_name(name:str, data_path=data_path):
+def path_from_name(name: str, data_path=data_path):
     """ Goes from stuff like [pair] to C:\Bach\concat_data\[pair].csv"""
     path = os.path.join(data_path, name + ".csv")
     return name
@@ -46,7 +37,10 @@ def prefilter(paths, start=startdate, end=enddate, cutoff=0.7):
     and uses a volume percentile cutoff. The output is in array (pair, its volume) """
     idx = pd.IndexSlice
     admissible = []
-    for i in tqdm(range(len(paths)), desc='Prefiltering pairs (based on volume and start/end of trading)'):
+    for i in tqdm(
+        range(len(paths)),
+        desc="Prefiltering pairs (based on volume and start/end of trading)",
+    ):
         df = pd.read_csv(paths[i])
         df.rename({"Opened": "Date"}, axis="columns", inplace=True)
         # filters out pairs that got listed past startdate
@@ -100,7 +94,7 @@ def preprocess(paths, freq="60T", end=enddate, first_n=15, start=startdate):
 
     paths = paths[first_n:]
     preprocessed = []
-    for i in tqdm(range(len(paths)), desc='Preprocessing files'):
+    for i in tqdm(range(len(paths)), desc="Preprocessing files"):
         df = pd.read_csv(paths[i])
         # The new Binance_fetcher API downloads Date as Opened instead..
         df.rename({"Opened": "Date"}, axis="columns", inplace=True)
@@ -179,6 +173,7 @@ def infer_periods(df):
     trading = (df.index[np.nonzero(mask1)[0][0]], df.index[np.nonzero(mask1)[0][-1]])
     formation = (df.index[np.nonzero(mask2)[0][0]], df.index[np.nonzero(mask2)[0][-1]])
     return {"formation": formation, "trading": trading}
+
 
 def find_same(r1, r2):
     """Finds overlap of pairs across methods """
@@ -274,6 +269,7 @@ def filter_nonsense(df):
         df.loc[(df.index.get_level_values(level=1) <= col), ("Threshold", col)] = "None"
     return df
 
+
 @contextmanager
 def cd(newdir):
     prevdir = os.getcwd()
@@ -282,7 +278,3 @@ def cd(newdir):
         yield
     finally:
         os.chdir(prevdir)
-
-
-
-#%%

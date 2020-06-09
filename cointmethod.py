@@ -10,9 +10,8 @@ import itertools
 import timeit
 import multiprocess as mp
 from sklearn.linear_model import LinearRegression
-from helpers import *
 
-#%%
+
 def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
     Takes the data from preprocess and filters out stationary series,
@@ -165,5 +164,3 @@ def coint_spread(df, viable_pairs, timeframe, betas=1):
         spreads.append(newdf)
     return pd.concat(spreads)
 
-
-#%%

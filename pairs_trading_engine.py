@@ -15,7 +15,14 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from config import data_path
+from config import data_path, enddate, startdate
+
+def pick_range(y, start, end):
+    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
+    past_start = y.index.levels[1] > pd.to_datetime(start)
+    before_end = y.index.levels[1] <= pd.to_datetime(end)
+    mask = (past_start) & (before_end)
+    return y.groupby(level=0).apply(lambda x: x.loc[mask]).droplevel(level=0)
 
 def signals_numeric(olddf, copy=True):
     #TODO I THINK THIS IS NOT USED AND WORTHLESSS

@@ -3,14 +3,12 @@ import pandas as pd
 import os
 import datetime
 import matplotlib.pyplot as plt
-from config import *
 from collections import namedtuple
-from helpers import *
+from pairs_trading_engine import sliced_norm
 
-#%%
 def distance(df, num=5):
     """ Df is expected to be a Multi-Indexed dataframe (result of helpers/preprocess)
-    It returns: Distances (pairwise distance matrix),  """
+    It returns: Distances (pairwise distance matrix) """
     newdf = df.copy()
     # df has a MultiIndex of the form PAIR-DATE
     pairs = newdf.index.unique(0)
@@ -106,80 +104,3 @@ def distance_spread(df, viable_pairs, timeframe, betas=1):
         spreads.append(newdf)
     return pd.concat(spreads)
 
-
-def adjust_weights(olddf, copy=True):
-    """Manages the evolution of initial weights (through price changes)
-    The percentage change is approximated by different in Price 
-    (which is on log scale)"""
-    df = olddf.copy(deep=copy)
-    price_diff = (
-        (
-            1
-            + (
-                df.groupby(level=0)["1Price"].shift(0)
-                - df.groupby(level=0)["1Price"].shift(1)
-            )
-        )
-        .groupby(level=0)
-        .cumprod()
-    )
-    df["1Weights"] = df["1Weights"].groupby(level=0).shift(1) * price_diff.groupby(
-        level=0
-    ).shift(0)
-    price_diff2 = (
-        (
-            1
-            + (
-                df.groupby(level=0)["2Price"].shift(0)
-                - df.groupby(level=0)["2Price"].shift(1)
-            )
-        )
-        .groupby(level=0)
-        .cumprod()
-    )
-    df["2Weights"] = df["2Weights"].groupby(level=0).shift(1) * price_diff2.groupby(
-        level=0
-    ).shift(0)
-    return df
-
-
-def distance_propagate_weights(df, timeframe, debug=False):
-    for name, group in df.groupby(level=0):
-        end_of_formation = df.loc[name].index.get_loc(timeframe[1])
-        temp_weights1 = group["1Weights"].to_list()
-        temp_weights2 = group["2Weights"].to_list()
-        return1 = group["1Price"] - group["1Price"].shift(1)
-        return2 = group["2Price"] - group["2Price"].shift(1)
-        if debug == True:
-            print(end_of_formation, len(group.index), name)
-        for i in range(end_of_formation + 1, len(group.index)):
-            if group.iloc[i]["Signals"] in ["keepLong", "keepShort"]:
-                # print(temp_weights1[i-1], temp_weights2[i-1])
-                # print(group.index[i])
-                # df.loc[(name,group.index[i]),'1Weights']=df.loc[(name, group.index[i-1]), '1Weights']*1.1
-                # not sure if the indexes are matched correctly here
-                temp_weights1[i] = temp_weights1[i - 1] * (1 + return1.iloc[i])
-                temp_weights2[i] = temp_weights2[i - 1] * (1 + return2.iloc[i])
-        df.loc[name, "1Weights"] = temp_weights1
-        df.loc[name, "2Weights"] = temp_weights2
-
-
-def distance_profit(df, beta=1.5):
-    """ Calculates the per-period profits
-    Returns a Multi-Indexed one column DF with Profit"""
-    # there used to be df as first arg in the func definition but its probably worthless?
-    # first = ((df.groupby(level=0)['1Price'].shift(0)-df.groupby(level=0)['1Price'].shift(1))*df.groupby(level=0)['1Price'].apply(np.sign)).groupby(level=0).cumsum()
-    # second = ((df.groupby(level=0)['2Price'].shift(0)-df.groupby(level=0)['2Price'].shift(1))*df.groupby(level=0)['2Price'].apply(np.sign)).groupby(level=0).cumsum()*beta
-    pure_1return = df.groupby(level=0)["1Price"].shift(0) - df.groupby(level=0)[
-        "1Price"
-    ].shift(1)
-    # Might have to drop the apply(sign) if I use signed weights
-    signed_1return = pure_1return * df.groupby(level=0)["Spread"].apply(np.sign)
-    weighted_1return = signed_1return * (df.groupby(level=0)["1Weights"].apply(np.abs))
-    pure_2return = df.groupby(level=0)["2Price"].shift(0) - df.groupby(level=0)[
-        "2Price"
-    ].shift(1)
-    signed_2return = pure_2return * (df.groupby(level=0)["Spread"].apply(np.sign) * -1)
-    weighted_2return = signed_2return * (df.groupby(level=0)["2Weights"].apply(np.abs))
-
-    return weighted_1return + weighted_2return

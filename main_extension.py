@@ -1,4 +1,3 @@
-#%%
 import os
 import numpy as np
 import pandas as pd
@@ -15,7 +14,7 @@ from distancemethod import *
 from helpers import *
 from cointmethod import *
 from config import *
-from simulation import *
+from simulation import simulate
 from simulations_database import *
 
 pd.options.mode.chained_assignment = None
