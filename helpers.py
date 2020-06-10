@@ -15,9 +15,7 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from config import *
-from config import data_path
-
+from config import data_path, start_date, end_date
 
 def name_from_path(path: str):
     """ Goes from stuff like C:\Bach\concat_data\[pair].csv to [pair]"""
@@ -32,8 +30,8 @@ def path_from_name(name: str, data_path=data_path):
     return name
 
 
-def prefilter(paths, start=startdate, end=enddate, cutoff=0.7):
-    """ Prefilters the time series so that we have only moderately old pairs (listed past startdate)
+def prefilter(paths, start=start_date, end=end_date, cutoff=0.7):
+    """ Prefilters the time series so that we have only moderately old pairs (listed past start_date)
     and uses a volume percentile cutoff. The output is in array (pair, its volume) """
     idx = pd.IndexSlice
     admissible = []
@@ -43,7 +41,7 @@ def prefilter(paths, start=startdate, end=enddate, cutoff=0.7):
     ):
         df = pd.read_csv(paths[i])
         df.rename({"Opened": "Date"}, axis="columns", inplace=True)
-        # filters out pairs that got listed past startdate
+        # filters out pairs that got listed past start_date
         if (pd.to_datetime(df.iloc[0]["Date"]) < pd.to_datetime(start)) and (
             pd.to_datetime(df.iloc[-1]["Date"]) > pd.to_datetime(end)
         ):
@@ -65,10 +63,10 @@ def prefilter(paths, start=startdate, end=enddate, cutoff=0.7):
     return np.array(admissible)
 
 
-def resample(df, freq="30T", start=startdate, fill=True):
+def resample(df, freq="30T", start=start_date, fill=True):
     """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
     Close prices get last values, Volume gets summed. 
-    Only indexes past startdate are returned to have a common start for all series 
+    Only indexes past start_date are returned to have a common start for all series 
     (since they got listed at various dates)"""
     df.index = pd.to_datetime(df.Date)
     # Close prices get resampled with last values, whereas Volume gets summed
@@ -87,24 +85,24 @@ def resample(df, freq="30T", start=startdate, fill=True):
     return newdf[newdf.index > pd.to_datetime(start)]
 
 
-def preprocess(paths, freq="60T", end=enddate, first_n=15, start=startdate):
+def preprocess(paths, freq:str ="60T", end=end_date, first_n: int=0, start=start_date):
     """Finishes the preprocessing based on prefiltered paths. We filter out pairs that got delisted early
-    (they need to go at least as far as enddate). Then all the eligible time series for pairs formation analysis
+    (they need to go at least as far as end_date). Then all the eligible time series for pairs formation analysis
     are concated into one big DF with a multiIndex (pair, time)."""
 
     paths = paths[first_n:]
     preprocessed = []
     for i in tqdm(range(len(paths)), desc="Preprocessing files"):
-        df = pd.read_csv(paths[i])
+        raw_coin = pd.read_csv(paths[i])
         # The new Binance_fetcher API downloads Date as Opened instead..
-        df.rename({"Opened": "Date"}, axis="columns", inplace=True)
-        df = df.sort_index()
-        df = resample(df, freq, start=start)
-        df = df.sort_index()
+        raw_coin.rename({"Opened": "Date"}, axis="columns", inplace=True)
+        raw_coin = raw_coin.sort_index()
+        raw_coin = resample(raw_coin, freq, start=start)
+        raw_coin = raw_coin.sort_index()
         # truncates the time series to a slightly earlier end date
         # because the last period is inhomogeneous due to pulling from API
-        if df.index[-1] > pd.to_datetime(end):
-            newdf = df[df.index < pd.to_datetime(end)]
+        if raw_coin.index[-1] > pd.to_datetime(end):
+            newdf = raw_coin[raw_coin.index < pd.to_datetime(end)]
             multiindex = pd.MultiIndex.from_product(
                 [[name_from_path(paths[i])], list(newdf.index.values)],
                 names=["Pair", "Time"],
@@ -121,40 +119,16 @@ def latexsave(df, file, params=[]):
     with open(file + ".tex", "w") as tf:
         tf.write(df.to_latex(*params, escape=False))
 
-
-def drawdown(df):
-    """Calculates the maximum drawdown. Window is just mean to be bigger than examined period"""
-    window = 25000
-    roll_max = df["cumProfit"].rolling(window, min_periods=1).max()
-    daily_drawdown = df["cumProfit"] / roll_max - 1.0
-    max_daily_drawdown = daily_drawdown.rolling(window, min_periods=1).min()
-    return max_daily_drawdown
-
-
-def find_trades(df, timeframe=5):
-    """ Identifies the periods where we actually trade the pairs"""
-    idx = pd.IndexSlice
-    starts = (df.loc[idx[:], "Signals"] == "Long") | (
-        df.loc[idx[:], "Signals"] == "Short"
-    )
-    ends = (df.loc[idx[:], "Signals"] == "sellLong") | (
-        df.loc[idx[:], "Signals"] == "sellShort"
-    )
-    if starts.sum() > ends.sum():
-        ends = ends | (df.loc[idx[:], "Signals"] == "Sell")
-    return (starts, ends)
-
-
 def load_results(name, methods, base="results"):
     path = os.path.join(base, name)
     files = os.listdir(path)
     dfs = []
     # for file in files:
-    for i in range(len(files)):
+    for i in tqdm(range(len(files)), desc='Loading saved results'):
         for file in files:
             rg = r"^" + str(len(dfs)) + "[a-z]"
             if methods in file and re.match(rg, file):
-                print(file)
+
                 df = pd.read_pickle(os.path.join(path, file))
                 dfs.append(df)
                 continue

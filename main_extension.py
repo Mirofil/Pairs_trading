@@ -10,13 +10,15 @@ import statsmodels
 import seaborn as sns
 import multiprocess as mp
 from dateutil.relativedelta import relativedelta
-from distancemethod import *
-from helpers import *
-from cointmethod import *
-from config import *
+from distancemethod import distance, distance_spread
+from helpers import data_path, prefilter, preprocess
+from cointmethod import coint_spread, cointegration, find_integrated
+from config import NUMOFPROCESSES, data_path, end_date, save, start_date, version
 from simulation import simulate
 from simulations_database import *
-
+from pairs_trading_engine import (calculate_profit, pick_range,
+                                  propagate_weights, signals, sliced_norm,
+                                  weights_from_signals)
 pd.options.mode.chained_assignment = None
 formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 1, 7]))
 trading = (formation[1], formation[1] + relativedelta(days=3))

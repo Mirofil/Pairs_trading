@@ -1,20 +1,20 @@
 #%%
-import pandas as pd
-from helpers import data_path, save
-from cointmethod import find_integrated, cointegration, coint_spread
-from distancemethod import (
-    distance,
-    distance_spread,
-)
-import os
-from config import data_path, save, version, NUMOFPROCESSES, enddate, startdate
 import datetime
+import os
 from typing import *
-from tqdm import tqdm
-from dateutil.relativedelta import relativedelta
-import numpy as np
 
-from pairs_trading_engine import sliced_norm, pick_range, signals, weights_from_signals, propagate_weights, calculate_profit
+import numpy as np
+import pandas as pd
+from dateutil.relativedelta import relativedelta
+from tqdm import tqdm
+
+from cointmethod import coint_spread, cointegration, find_integrated
+from config import NUMOFPROCESSES, data_path, end_date, save, start_date, version
+from distancemethod import distance, distance_spread
+from helpers import data_path, prefilter, preprocess
+from pairs_trading_engine import (calculate_profit, pick_range,
+                                  propagate_weights, signals, sliced_norm,
+                                  weights_from_signals)
 
 num_of_processes = NUMOFPROCESSES
 pd.options.mode.chained_assignment = None
@@ -157,7 +157,7 @@ def simulate(
             dist_signal.to_pickle(
                 os.path.join(save, scenario, str(i) + "dist_signal.pkl")
             )
-        if trading[1] == enddate:
+        if trading[1] == end_date:
             break
 
 

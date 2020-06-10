@@ -1,5 +1,5 @@
 import datetime
-from config import startdate, enddate
+from config import start_date, end_date
 
 
 def generate_scenario(
@@ -9,8 +9,8 @@ def generate_scenario(
     training_delta=[2, 0, 0],
     cutoff=0.7,
     formation_delta=[4, 0, 0],
-    start=startdate,
-    end=enddate,
+    start=start_date,
+    end=end_date,
     jump=[1,0,0],
     methods='dist',
     dist_num=20,
@@ -23,8 +23,8 @@ def generate_scenario(
 
 # Order sensitive!
 #################DAILY
-starting_date = startdate
-ending_date = enddate
+starting_date = start_date
+ending_date = end_date
 scenario1 = {
     "freq": "1D",
     "lag": 1,

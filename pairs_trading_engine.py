@@ -15,7 +15,7 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from config import data_path, enddate, startdate
+from config import data_path, end_date, start_date
 
 def pick_range(y, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
@@ -109,25 +109,25 @@ def propagate_weights(df, timeframe: List):
         df.loc[name, "1Weights"] = temp_weights1
         df.loc[name, "2Weights"] = temp_weights2
 
-def propagate_weights2(df, timeframe):
-    idx = pd.IndexSlice
-    grouped = df.groupby(level=0)
-    for name, group in df.groupby(level=0):
-        end_of_formation = df.loc[name].index.get_loc(timeframe[1])
-        return1 = group["1Price"] - group["1Price"].shift(1)
-        return2 = group["2Price"] - group["2Price"].shift(1)
-        mask = (df["Signals"] == "keepLong") | (df["Signals"] == "keepShort")
-        # mask = (group['Signals']=='keepLong')|(group['Signals']=='keepShort')
-        cumreturn1 = (return1 + 1).loc[idx[mask]].cumprod()
-        cumreturn2 = (return2 + 1).cumprod()
-        # print(len(mask))
-        # print(df.loc[idx[name, mask], '1Weights'])
-        # print(cumreturn1)
-        # print(df.loc[idx[name, mask], '1Weights'])
-        df.loc[idx[name, mask], "1Weights"] = (
-            df.loc[idx[name, mask], "1Weights"].shift(1) * cumreturn1
-        )
-        # df.loc[idx[name,mask],'1Weights']=5
+# def propagate_weights2(df, timeframe):
+#     idx = pd.IndexSlice
+#     grouped = df.groupby(level=0)
+#     for name, group in df.groupby(level=0):
+#         end_of_formation = df.loc[name].index.get_loc(timeframe[1])
+#         return1 = group["1Price"] - group["1Price"].shift(1)
+#         return2 = group["2Price"] - group["2Price"].shift(1)
+#         mask = (df["Signals"] == "keepLong") | (df["Signals"] == "keepShort")
+#         # mask = (group['Signals']=='keepLong')|(group['Signals']=='keepShort')
+#         cumreturn1 = (return1 + 1).loc[idx[mask]].cumprod()
+#         cumreturn2 = (return2 + 1).cumprod()
+#         # print(len(mask))
+#         # print(df.loc[idx[name, mask], '1Weights'])
+#         # print(cumreturn1)
+#         # print(df.loc[idx[name, mask], '1Weights'])
+#         df.loc[idx[name, mask], "1Weights"] = (
+#             df.loc[idx[name, mask], "1Weights"].shift(1) * cumreturn1
+#         )
+#         # df.loc[idx[name,mask],'1Weights']=5
 
 def calculate_profit(df, cost=0):
     """Inplace calculates the profit per period as well as a cumulative profit
@@ -174,7 +174,7 @@ def signals_worker(
     stoploss=100,
     num_of_processes=1,
 ):
-    global enddate
+    global end_date
     idx = pd.IndexSlice
     for name, df in multidf.loc[
         pd.IndexSlice[:, timeframe[0] : timeframe[1]], :
@@ -254,14 +254,14 @@ def signals_worker(
         multidf.loc[
             pd.IndexSlice[name, timeframe[0] : timeframe[1]], "Signals"
         ] = pd.Series(col, index=df.index)
-    multidf.loc[idx[:, timeframe[1] : enddate], "Signals"] = multidf.loc[
-        idx[:, timeframe[1] : enddate], "Signals"
+    multidf.loc[idx[:, timeframe[1] : end_date], "Signals"] = multidf.loc[
+        idx[:, timeframe[1] : end_date], "Signals"
     ].fillna(value="pastFormation")
     multidf.loc[idx[:, formation[0] : formation[1]], "Signals"] = multidf.loc[
         idx[:, formation[0] : formation[1]], "Signals"
     ].fillna(value="Formation")
-    multidf.loc[idx[:, startdate : formation[0]], "Signals"] = multidf.loc[
-        idx[:, startdate : formation[0]], "Signals"
+    multidf.loc[idx[:, start_date : formation[0]], "Signals"] = multidf.loc[
+        idx[:, start_date : formation[0]], "Signals"
     ].fillna(value="preFormation")
     # multidf['Signals'] = multidf['Signals'].fillna(value='Formation')
     return multidf

@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from config import data_path
 
+
 def corrs(df):
     cols = ["Sharpe", "Sortino", "Calmar", "VaR"]
     arr = pd.DataFrame(columns=cols, index=cols)
@@ -39,33 +40,50 @@ def corrs(df):
             )
     return (arr, ps)
 
-def infer_periods(df):
+
+def infer_periods(single_backtest_df: pd.DataFrame):
     """Auto detects the Formation and Trading periods
     Works even with MultiIndexed since the periods are the same across all pairs"""
-    mask1 = ~(
-        (df["Signals"] == "Formation")
-        | (df["Signals"] == "pastFormation")
-        | (df["Signals"] == "preFormation")
+    trading_period_mask = ~(
+        (single_backtest_df["Signals"] == "Formation")
+        | (single_backtest_df["Signals"] == "pastFormation")
+        | (single_backtest_df["Signals"] == "preFormation")
     )
-    mask2 = df["Signals"] == "Formation"
-    trading = (df.index[np.nonzero(mask1)[0][0]], df.index[np.nonzero(mask1)[0][-1]])
-    formation = (df.index[np.nonzero(mask2)[0][0]], df.index[np.nonzero(mask2)[0][-1]])
+    formation_mask = single_backtest_df["Signals"] == "Formation"
+    # All pairs should have the same trading/formation periods so it does not matter which ones we pick
+    example_pair = trading_period_mask.index[0][0]
+    trading_period = trading_period_mask.loc[(example_pair, slice(None))].loc[
+        trading_period_mask.loc[(example_pair, slice(None))].values
+    ]
+    trading = (
+        trading_period.index.get_level_values("Time")[0],
+        trading_period.index.get_level_values("Time")[-1],
+    )
+
+    formation_period = formation_mask.loc[(example_pair, slice(None))].loc[
+        formation_mask.loc[(example_pair, slice(None))].values
+    ]
+    formation = (
+        formation_period.index.get_level_values("Time")[0],
+        formation_period.index.get_level_values("Time")[-1],
+    )
+
     return {"formation": formation, "trading": trading}
 
+
 def descriptive_stats(
-    df,
-    timeframe=5,
-    freq="daily",
-    riskfree=0.02,
-    tradingdays=60,
-    nonzero=False,
-    trades_nonzero=False,
+    single_backtest_df: pd.DataFrame,
+    trading_timeframe: Optional[List] = None,
+    freq: str = "daily",
+    risk_free: int = 0.02,
+    nonzero: bool = False,
+    trades_nonzero: bool = False,
 ):
     """Input: one period of all pairs history, just one specific pair wont work
     Output: Summary statistics for every pair"""
     idx = pd.IndexSlice
     stats = pd.DataFrame(
-        index=df.index.unique(level=0),
+        index=single_backtest_df.index.unique(level=0),
         columns=[
             "Mean",
             "Total profit",
@@ -90,12 +108,12 @@ def descriptive_stats(
             "Max drawdown",
         ],
     )
-    trad = infer_periods(df)["trading"]
-    tradingdays = abs((trad[0][1] - trad[1][1]).days)
-    annualizer = 365 / tradingdays
-    monthlizer = 30 / tradingdays
-    riskfree = riskfree / annualizer
-    for name, group in df.groupby(level=0):
+    trad = infer_periods(single_backtest_df)
+    trading_days = abs((trad["trading"][0] - trad["trading"][1]).days)
+    annualizer = 365 / trading_days
+    monthlizer = 30 / trading_days
+    risk_free = risk_free / annualizer
+    for name, group in single_backtest_df.groupby(level=0):
         stats.loc[name, "Mean"] = group["Profit"].mean()
         stats.loc[name, "Total profit"] = group["Profit"].sum()
         stats.loc[name, "Std"] = group["Profit"].std()
@@ -116,10 +134,10 @@ def descriptive_stats(
         neg_mask = group["Profit"] < 0
         stats.loc[name, "Downside Std"] = group.loc[neg_mask, "Profit"].std()
         stats.loc[name, "Sortino"] = (
-            stats.loc[name, "Total profit"] - riskfree
+            stats.loc[name, "Total profit"] - risk_free
         ) / stats.loc[name, "Downside Std"]
         stats.loc[name, "Sharpe"] = (
-            stats.loc[name, "Total profit"] - riskfree
+            stats.loc[name, "Total profit"] - risk_free
         ) / stats.loc[name, "Std"]
         stats.loc[name, "Monthly profit"] = (
             (stats.loc[name, "Total profit"] + 1) ** monthlizer
@@ -131,33 +149,37 @@ def descriptive_stats(
             group["Profit"].quantile(0.05) != 0
         ):
             stats.loc[name, "VaR"] = -(
-                stats.loc[name, "Total profit"] - riskfree
+                stats.loc[name, "Total profit"] - risk_free
             ) / group["Profit"].quantile(0.05)
         else:
             stats.loc[name, "VaR"] = None
         stats.loc[name, "Calmar"] = (
             stats.loc[name, "Annual profit"] / stats.loc[name, "Max drawdown"]
         )
-        last_valid = df.loc[
-            idx[name, timeframe[0] : timeframe[1]], "cumProfit"
+        last_valid = single_backtest_df.loc[
+            idx[name, trading_timeframe[0] : trading_timeframe[1]], "cumProfit"
         ].last_valid_index()
         # if the pair never trades, then last_valid=None and it would fuck up indexing later
         if last_valid == None:
-            last_valid = timeframe[1]
+            last_valid = trading_timeframe[1]
         # we have to make distinction here for the assignment to stats[CumProfit] to work
         # because sometimes we would assign None and sometimes a Series which would give error
         # the sum() is just to convert the Series to a scalar
-        if isinstance(df.loc[idx[name, last_valid], "cumProfit"], pd.Series):
-            stats.loc[name, "Cumulative profit"] = df.loc[
+        if isinstance(
+            single_backtest_df.loc[idx[name, last_valid], "cumProfit"], pd.Series
+        ):
+            stats.loc[name, "Cumulative profit"] = single_backtest_df.loc[
                 idx[name, last_valid], "cumProfit"
             ].sum()
         else:
             stats.loc[name, "Cumulative profit"] = 1
 
         # picks the dates on which trades have ended
-        mask2 = find_trades(df.loc[idx[name, :], :], timeframe)[1]
+        mask2 = find_trades(single_backtest_df.loc[idx[name, :], :], trading_timeframe)[
+            1
+        ]
         stats.loc[name, "Pct of winning trades"] = (
-            df.loc[idx[name, :], "cumProfit"][mask2] > 1
+            single_backtest_df.loc[idx[name, :], "cumProfit"][mask2] > 1
         ).sum() / max(stats.loc[name, "Number of trades"], 1)
         if nonzero == True:
             stats.loc[
@@ -171,7 +193,9 @@ def descriptive_stats(
             ] = None
     return stats
 
+
 def descriptive_frame(olddf):
+    # this should be a subset of the statistics from descriptive_stats I think
     diag = [
         "Monthly profit",
         "Annual profit",
@@ -189,7 +213,8 @@ def descriptive_frame(olddf):
         "Cumulative profit",
     ]
     idx = pd.IndexSlice
-    # rebuilds the MultiIndex?
+    # rebuilds the MultiIndex? Seems to go from PAIR, TIME to BACKTEST_INDEX, PAIR with the same columns
+    # (or rather, with the diag on colums at the end which are quite close to the originals)
     temp = [[], []]
     for i in range(len(olddf.index.unique(level=0))):
         temp[0].append([i for x in range(len(olddf.loc[i].index.unique(level=0)))])
@@ -197,16 +222,22 @@ def descriptive_frame(olddf):
     temp[0] = [item for sublist in temp[0] for item in sublist]
     temp[1] = [item for sublist in temp[1] for item in sublist]
     df = pd.DataFrame(index=temp, columns=diag)
-    # print(df)
-    for name, group in df.groupby(level=0):
-        test_df = olddf.loc[name].index.unique(level=0)[0]
+
+    # This is meant to be iteration over all the backtest indexes (0,1,..,N)
+    for backtest_index, _ in tqdm(
+        df.groupby(level=0), desc="Constructing descriptive frames over backtests"
+    ):
+
+        test_pair = olddf.loc[backtest_index].index.unique(level=0)[0]
         stats = descriptive_stats(
-            olddf.loc[name], infer_periods(olddf.loc[(name, test_df)])["trading"]
+            olddf.loc[backtest_index],
+            trading_timeframe=infer_periods(olddf.loc[backtest_index])["trading"],
         )
-        for col in df.loc[name].columns:
-            df.loc[idx[name, :], col] = stats[col].values
+        for col in df.loc[backtest_index].columns:
+            df.loc[idx[backtest_index, :], col] = stats[col].values
 
     return df.astype("float32")
+
 
 def summarize(df, index, mean=False):
     """ Summarizes the return distribution"""
@@ -226,52 +257,57 @@ def summarize(df, index, mean=False):
     res.loc["t-stat"] = res.loc["Mean"] / res.loc["Std"] * (count) ** (1 / 2)
     return res
 
+
 def aggregate(
-    dfs,
-    feasible,
-    freqs=[60, 60, 10, 10],
-    standard=True,
+    descriptive_frames: List[pd.DataFrame],
+    columns_to_pick,
+    trading_period_days=[60, 60, 10, 10],
+    multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
     returns_nonzero=False,
     trades_nonzero=False,
 ):
     temp = []
-    for i in range(len(dfs)):
-        df = dfs[i]
-        numnom = len(df.index.get_level_values(level=1)) / (df.index[-1][0] + 1)
-        numtr = len(df[df["Number of trades"] > 0].index.get_level_values(level=1)) / (
-            df.index[-1][0] + 1
+    for i in range(len(descriptive_frames)):
+        desc_frame = descriptive_frames[i]
+        numnom = len(desc_frame.index.get_level_values(level=1)) / (
+            desc_frame.index[-1][0] + 1
         )
+        number_of_trades = len(
+            desc_frame[desc_frame["Number of trades"] > 0].index.get_level_values(
+                level=1
+            )
+        ) / (desc_frame.index[-1][0] + 1)
         if returns_nonzero == True:
-            df.loc[
-                df["Number of trades"] == 0,
+            desc_frame.loc[
+                desc_frame["Number of trades"] == 0,
                 ["Total profit", "Monthly profit", "Annual profit"],
             ] = None
         if trades_nonzero == True:
-            df.loc[
-                df["Number of trades"] == 0,
+            desc_frame.loc[
+                desc_frame["Number of trades"] == 0,
                 ["Roundtrip trades", "Avg length of position"],
             ] = None
-        mean = df.groupby(level=0).mean()
+        mean = desc_frame.groupby(level=0).mean()
         mean["Trading period Sharpe"] = (
-            mean["Total profit"] - (0.02 / (365 / freqs[i]))
+            mean["Total profit"] - (0.02 / (365 / trading_period_days[i]))
         ) / mean["Std"]
         mean["Annualized Sharpe"] = mean["Trading period Sharpe"] * (
-            (365 / freqs[i]) ** (1 / 2)
+            (365 / trading_period_days[i]) ** (1 / 2)
         )
         mean = mean.mean()
-        mean["Annual profit"] = (1 + mean["Total profit"]) ** (365 / freqs[i]) - 1
-        mean["Monthly profit"] = (1 + mean["Total profit"]) ** (30 / freqs[i]) - 1
+        mean["Annual profit"] = (1 + mean["Total profit"]) ** (365 / trading_period_days[i]) - 1
+        mean["Monthly profit"] = (1 + mean["Total profit"]) ** (30 / trading_period_days[i]) - 1
         mean["Nominated pairs"] = numnom
-        mean["Traded pairs"] = numtr
+        mean["Traded pairs"] = number_of_trades
         mean["Traded pairs"] = mean["Traded pairs"] / mean["Nominated pairs"]
-        temp.append(mean[feasible])
+        temp.append(mean[columns_to_pick])
     concated = pd.concat(temp, axis=1)
-    if standard == True:
-        cols = pd.MultiIndex.from_product(
-            [["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]]
-        )
-        concated.columns = cols
+    cols = pd.MultiIndex.from_product(
+        multiindex_from_product_cols
+    )
+    concated.columns = cols
     return concated
+
 
 def rhoci(rho, n, conf=0.95):
     mean = np.arctanh(rho)
@@ -282,3 +318,24 @@ def rhoci(rho, n, conf=0.95):
     return trueci
 
 
+def drawdown(df):
+    """Calculates the maximum drawdown. Window is just mean to be bigger than examined period"""
+    window = 25000
+    roll_max = df["cumProfit"].rolling(window, min_periods=1).max()
+    daily_drawdown = df["cumProfit"] / roll_max - 1.0
+    max_daily_drawdown = daily_drawdown.rolling(window, min_periods=1).min()
+    return max_daily_drawdown
+
+
+def find_trades(df, timeframe=5):
+    """ Identifies the periods where we actually trade the pairs"""
+    idx = pd.IndexSlice
+    starts = (df.loc[idx[:], "Signals"] == "Long") | (
+        df.loc[idx[:], "Signals"] == "Short"
+    )
+    ends = (df.loc[idx[:], "Signals"] == "sellLong") | (
+        df.loc[idx[:], "Signals"] == "sellShort"
+    )
+    if starts.sum() > ends.sum():
+        ends = ends | (df.loc[idx[:], "Signals"] == "Sell")
+    return (starts, ends)
