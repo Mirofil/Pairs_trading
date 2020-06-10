@@ -190,7 +190,7 @@ latexsave(agg, save_path_tables+'resultstable')
 
 #%%
 #NOLAG TABLE
-newbase='NEWresults\\'
+newbase='results\\'
 rhdnl = load_results('scenario3_nolag', 'dist',newbase)
 rddnl = load_results('scenario1_nolag', 'dist', newbase)
 rdcnl = load_results('scenario1_nolag', 'coint', newbase)

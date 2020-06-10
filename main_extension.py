@@ -75,9 +75,9 @@ simulate(scenario7, num_of_processes=3)
 simulate(scenario8, num_of_processes=3)
 simulate(scenario7_nolag, num_of_processes=3)
 
-simulate(scenario7_coint, num_of_processes=35)
-simulate(scenario8_coint, num_of_processes=35)
-simulate(scenario7_coint_nolag, num_of_processes=35)
+simulate(scenario7_coint, num_of_processes=3)
+simulate(scenario8_coint, num_of_processes=3)
+simulate(scenario7_coint_nolag, num_of_processes=3)
 
 #%%
 #COINTEGRATION TESTING
@@ -166,3 +166,4 @@ print('Profit calculation was done in: ' + str(end-start))
 #%%
 dist_signal.to_pickle('test_dist.pkl')
 
+#%%
