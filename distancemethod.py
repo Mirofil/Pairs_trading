@@ -3,12 +3,20 @@ import pandas as pd
 import os
 import datetime
 import matplotlib.pyplot as plt
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from pairs_trading_engine import sliced_norm
 
-def distance(df, num=5):
-    """ Df is expected to be a Multi-Indexed dataframe (result of helpers/preprocess)
-    It returns: Distances (pairwise distance matrix) """
+
+def distance(df: pd.DataFrame, num:int =5):
+    """
+    Args:
+        df (pd.DataFrame): Df is expected to be a Multi-Indexed dataframe (result of helpers/preprocess)
+        num (int, optional): How many shortest-distance pairs to take. Defaults to 5.
+
+    Returns:
+        Distances (pairwise distance matrix) as third items
+        then some trash?
+    """
     newdf = df.copy()
     # df has a MultiIndex of the form PAIR-DATE
     pairs = newdf.index.unique(0)
@@ -49,7 +57,7 @@ def distance(df, num=5):
     # a single pair rather than two arrays where X and Y coordinates of a single pair are split among those
     zipped = np.array(list(zip(top_indexes[0], top_indexes[1])))
     viable_pairs = [(pairs[x[0]], pairs[x[1]]) for x in zipped]
-    return (distances, top_indexes, viable_pairs, zipped, newdf)
+    return OrderedDict({'distances':distances, 'top_indexes':top_indexes, 'viable_pairs': viable_pairs, 'zipped': zipped, 'newdf':newdf})
 
 
 def distance_spread(df, viable_pairs, timeframe, betas=1):

@@ -2,13 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 import datetime
-import matplotlib.pyplot as plt
-import timeit
-import datetime
-import scipy
-import statsmodels
-import seaborn as sns
-import multiprocess as mp
 from dateutil.relativedelta import relativedelta
 from distancemethod import distance, distance_spread
 from helpers import data_path, prefilter, preprocess
@@ -46,7 +39,7 @@ preprocessed = pd.read_pickle(os.path.join(root_folder, "NEWpreprocessed5T0_7.pk
 
 #%%
 # #13s per iteration (local)
-simulate(scenario1, save='testing', data_path = 'paper1/NEWconcatenated_price_data/', redo_prefiltered=False, redo_preprocessed=False)
+simulate(**scenario1, save='testing', data_path = 'paper1/NEWconcatenated_price_data/', redo_prefiltered=False, redo_preprocessed=False)
 # 16s per iteration (local)
 simulate(scenario1_coint)
 # 1min40s per iteration (sometimes down to 40)
@@ -167,7 +160,7 @@ print("Distances were found in: " + str(end - start))
 #%%
 start = datetime.datetime.now()
 short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
-spreads = distance_spread(short_preprocessed, distances[2], formation)
+spreads = distance_spread(short_preprocessed, distances['viable_pairs'], formation)
 end = datetime.datetime.now()
 print("Distance spreads were found in: " + str(end - start))
 # this is some technical detail needed later?

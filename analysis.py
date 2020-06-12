@@ -108,8 +108,9 @@ def descriptive_stats(
             "Max drawdown",
         ],
     )
-    trad = infer_periods(single_backtest_df)
-    trading_days = abs((trad["trading"][0] - trad["trading"][1]).days)
+    periods = infer_periods(single_backtest_df)
+    trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
+    trading_timeframe = periods["trading"]
     annualizer = 365 / trading_days
     monthlizer = 30 / trading_days
     risk_free = risk_free / annualizer
@@ -213,7 +214,7 @@ def descriptive_frame(olddf):
         "Cumulative profit",
     ]
     idx = pd.IndexSlice
-    # rebuilds the MultiIndex? Seems to go from PAIR, TIME to BACKTEST_INDEX, PAIR with the same columns
+    # rebuilds the MultiIndex? Seems to go from BACKTEST_INDEX, PAIR, TIME to BACKTEST_INDEX, PAIR with the same columns
     # (or rather, with the diag on colums at the end which are quite close to the originals)
     temp = [[], []]
     for i in range(len(olddf.index.unique(level=0))):
@@ -257,6 +258,20 @@ def summarize(df, index, mean=False):
     res.loc["t-stat"] = res.loc["Mean"] / res.loc["Std"] * (count) ** (1 / 2)
     return res
 
+def compute_period_length(specification:List):
+    return specification[0]*30+specification[1]
+
+def compute_cols_from_freq(freqs:List[str], methods:List[str]):
+    results = []
+    for freq in freqs:
+        if freq[-1] == 'D':
+            results.append('Daily')
+        elif freq[-1] == 'H':
+            results.append('Hourly')
+        elif freq[-1] == 'T':
+            results.append(f"{freq[:-2]}-Minute")
+    return [results, methods]
+    
 
 def aggregate(
     descriptive_frames: List[pd.DataFrame],
@@ -269,7 +284,7 @@ def aggregate(
     temp = []
     for i in range(len(descriptive_frames)):
         desc_frame = descriptive_frames[i]
-        numnom = len(desc_frame.index.get_level_values(level=1)) / (
+        num_nominated = len(desc_frame.index.get_level_values(level=1)) / (
             desc_frame.index[-1][0] + 1
         )
         number_of_trades = len(
@@ -297,7 +312,7 @@ def aggregate(
         mean = mean.mean()
         mean["Annual profit"] = (1 + mean["Total profit"]) ** (365 / trading_period_days[i]) - 1
         mean["Monthly profit"] = (1 + mean["Total profit"]) ** (30 / trading_period_days[i]) - 1
-        mean["Nominated pairs"] = numnom
+        mean["Nominated pairs"] = num_nominated
         mean["Traded pairs"] = number_of_trades
         mean["Traded pairs"] = mean["Traded pairs"] / mean["Nominated pairs"]
         temp.append(mean[columns_to_pick])
@@ -319,7 +334,7 @@ def rhoci(rho, n, conf=0.95):
 
 
 def drawdown(df):
-    """Calculates the maximum drawdown. Window is just mean to be bigger than examined period"""
+    """Calculates the maximum drawdown. Window is just meant to be bigger than examined period"""
     window = 25000
     roll_max = df["cumProfit"].rolling(window, min_periods=1).max()
     daily_drawdown = df["cumProfit"] / roll_max - 1.0

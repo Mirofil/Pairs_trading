@@ -9,7 +9,7 @@ import datetime
 import scipy
 from dateutil.relativedelta import relativedelta
 from distancemethod import *
-from helpers import 
+from helpers import load_results
 from cointmethod import *
 from config import *
 from itertools import zip_longest
@@ -255,7 +255,7 @@ feasible = [
 ]
 agg = aggregate(
     [ddd, ddc, dhd, dhc, dtd, dtc],
-    feasible,
+num_nominatedasible,
     trades_nonzero=True,
     returns_nonzero=True,
     trading_period_days=[60, 60, 10, 10, 3, 3],
@@ -289,7 +289,7 @@ ddcnl.to_pickle(save_path_tables + "ddcnl.pkl")
 dhcnl.to_pickle(save_path_tables + "dhcnl.pkl")
 dtdnl.to_pickle(save_path_tables + "dtdnl.pkl")
 dtcnl.to_pickle(save_path_tables + "dtcnl.pkl")
-dddnl = pd.read_pickle(save_path_tables + "dddnl.pkl")
+dddnl = pd.read_pickle(save_path_tanum_nominated "dddnl.pkl")
 dhdnl = pd.read_pickle(save_path_tables + "dhdnl.pkl")
 dhcnl = pd.read_pickle(save_path_tables + "dhcnl.pkl")
 ddcnl = pd.read_pickle(save_path_tables + "ddcnl.pkl")

@@ -269,8 +269,8 @@ def signals_worker(
 
 def signals(
     multidf,
-    timeframe=5,
-    formation=5,
+    timeframe=None,
+    formation=None,
     threshold=2,
     lag=0,
     stoploss=100,

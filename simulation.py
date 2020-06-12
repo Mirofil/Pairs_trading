@@ -7,42 +7,76 @@ import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
+from ray import tune
+import ray
+
 
 from cointmethod import coint_spread, cointegration, find_integrated
-from config import NUMOFPROCESSES, data_path, end_date, save, start_date, version
+from config import (
+    NUMOFPROCESSES,
+    data_path,
+    end_date,
+    save,
+    start_date,
+    version,
+    standard_result_metrics_from_desc_stats,
+)
 from distancemethod import distance, distance_spread
 from helpers import data_path, prefilter, preprocess
-from pairs_trading_engine import (calculate_profit, pick_range,
-                                  propagate_weights, signals, sliced_norm,
-                                  weights_from_signals)
+from pairs_trading_engine import (
+    calculate_profit,
+    pick_range,
+    propagate_weights,
+    signals,
+    sliced_norm,
+    weights_from_signals,
+)
+from analysis import (
+    descriptive_stats,
+    descriptive_frame,
+    summarize,
+    aggregate,
+    compute_period_length,
+    compute_cols_from_freq,
+)
 
-num_of_processes = NUMOFPROCESSES
+num_of_processes = 1
 pd.options.mode.chained_assignment = None
-#%%
+
+
+analysis = tune.run(simulate, config={**generate_scenario()})
+
 def simulate(
-    params: Dict,
-    data_path: str = data_path,
-    save: str = save,
-    num_of_processes: int = num_of_processes,
-    redo_prefiltered = False,
-    redo_preprocessed = False,
-    truncate = True,
-    volume_cutoff=0.7
+    params
+    # data_path: str = data_path,
+    # save: str = save,
+    # num_of_processes: int = num_of_processes,
+    # redo_prefiltered:bool = False,
+    # redo_preprocessed:bool = False,
+    # truncate:bool = True,
+    # volume_cutoff:int=0.7
 ):
     freq = params["freq"]
     lag = params["lag"]
     txcost = params["txcost"]
     training_delta = params["training_delta"]
-    cutoff = params["cutoff"]
+    volume_cutoff = params["volume_cutoff"]
     formation_delta = params["formation_delta"]
     start = params["start"]
     end = params["end"]
     jump = params["jump"]
-    methods = params["methods"]
+    method = params["method"]
     dist_num = params["dist_num"]
     threshold = params["threshold"]
     stoploss = params["stoploss"]
     scenario = params["name"]
+    data_path = params["data_path"]
+    save = params["save"]
+    num_of_processes = 1
+    redo_prefiltered = params["redo_prefiltered"]
+    redo_preprocessed = params["redo_preprocessed"]
+    truncate = params["truncate"]
+    volumne_cutoff = params["volume_cutoff"]
 
     files = os.listdir(data_path)
     paths = [
@@ -67,7 +101,11 @@ def simulate(
     with open(os.path.join(save, scenario, "parameters" + ".txt"), "w") as tf:
         print(params, file=tf)
 
-    for i in tqdm(range(50000), desc = 'Starting nth iteration of the formation-trading loop'):
+    backtests = []
+
+    for i in tqdm(
+        range(50000), desc="Starting nth iteration of the formation-trading loop"
+    ):
         formation = (start + i * jumpdelta, start + formationdelta + i * jumpdelta)
         trading = (formation[1], formation[1] + trainingdelta)
         print("Starting: " + str(formation) + " at " + str(datetime.datetime.now()))
@@ -80,33 +118,37 @@ def simulate(
             break
 
         if redo_prefiltered == True:
-            prefiltered = prefilter(paths, cutoff=cutoff)
-            np.save(os.path.join(save, str(i) + "x" + str(cutoff), prefiltered))
+            prefiltered = prefilter(paths, cutoff=volume_cutoff)
+            np.save(os.path.join(save, str(i) + "x" + str(volume_cutoff), prefiltered))
         else:
-            prefiltered_fpath = os.path.join(save, version + "prefiltered" + str(cutoff).replace(".", "_") + ".npy")
+            prefiltered_fpath = os.path.join(
+                save,
+                version + "prefiltered" + str(volume_cutoff).replace(".", "_") + ".npy",
+            )
             if not os.path.isfile(prefiltered_fpath):
-                prefiltered = prefilter(paths, cutoff=cutoff)
+                prefiltered = prefilter(paths, cutoff=volume_cutoff)
                 np.save(prefiltered_fpath, prefiltered)
             else:
-                prefiltered = np.load(
-                    prefiltered_fpath
-                )
+                prefiltered = np.load(prefiltered_fpath)
         if redo_preprocessed == True:
             preprocessed = preprocess(prefiltered[:, 0], first_n=0, freq=freq)
             preprocessed.to_pickle(os.path.join(save, str(i) + "y" + str(freq)))
 
         else:
             preprocessed_fpath = os.path.join(
-                    save, version + "preprocessed" + str(freq) + str(cutoff).replace(".", "_") + ".pkl"
-                )
+                save,
+                version
+                + "preprocessed"
+                + str(freq)
+                + str(volume_cutoff).replace(".", "_")
+                + ".pkl",
+            )
             if not os.path.isfile(preprocessed_fpath):
                 preprocessed = preprocess(prefiltered[:, 0], first_n=0, freq=freq)
                 preprocessed.to_pickle(preprocessed_fpath)
             else:
-                preprocessed = pd.read_pickle(
-                    preprocessed_fpath
-                )
-        if "coint" in methods:
+                preprocessed = pd.read_pickle(preprocessed_fpath)
+        if "coint" in method:
             coint_head = pick_range(preprocessed, formation[0], formation[1])
             k = cointegration(
                 find_integrated(coint_head), num_of_processes=num_of_processes
@@ -128,19 +170,21 @@ def simulate(
                 stoploss=stoploss,
                 num_of_processes=num_of_processes,
             )
-            #I think this is useless so let me comment it out
+            # I think this is useless so let me comment it out
             # coint_signal = signals_numeric(coint_signal)
             weights_from_signals(coint_signal, cost=txcost)
             propagate_weights(coint_signal, formation)
             calculate_profit(coint_signal, cost=txcost)
-            coint_signal.to_pickle(
-                os.path.join(save, scenario, str(i) + "coint_signal.pkl")
-            )
-        if "dist" in methods:
+            if save is not None:
+                coint_signal.to_pickle(
+                    os.path.join(save, scenario, str(i) + "coint_signal.pkl")
+                )
+            backtests.append(coint_signal)
+        if "dist" in method:
             head = pick_range(preprocessed, formation[0], formation[1])
             distances = distance(head, num=dist_num)
             short_y = pick_range(preprocessed, formation[0], trading[1])
-            spreads = distance_spread(short_y, distances[2], formation)
+            spreads = distance_spread(short_y, distances["viable_pairs"], formation)
             spreads.sort_index(inplace=True)
             dist_signal = signals(
                 spreads,
@@ -154,11 +198,31 @@ def simulate(
             weights_from_signals(dist_signal, cost=txcost)
             propagate_weights(dist_signal, formation)
             calculate_profit(dist_signal, cost=txcost)
-            dist_signal.to_pickle(
-                os.path.join(save, scenario, str(i) + "dist_signal.pkl")
-            )
+            if save is not None:
+                dist_signal.to_pickle(
+                    os.path.join(save, scenario, str(i) + "dist_signal.pkl")
+                )
+            backtests.append(dist_signal)
         if trading[1] == end_date:
             break
+
+    # backtests = [descriptive_stats(backtest) for backtest in backtests]
+    descriptive_frames = descriptive_frame(
+        pd.concat(backtests, keys=range(len(backtests)))
+    )
+    trading_period_days = compute_period_length(training_delta)
+    multiindex_from_product_cols = compute_cols_from_freq([freq], [method])
+    aggregated = aggregate(
+        [descriptive_frames],
+        columns_to_pick=standard_result_metrics_from_desc_stats,
+        trading_period_days=[trading_period_days],
+        multiindex_from_product_cols=multiindex_from_product_cols,
+        returns_nonzero=True,
+        trades_nonzero=True,
+    )
+    serializable_columns = ['/'.join(x) for x in aggregated.columns.to_flat_index().values]
+    aggregated.columns = serializable_columns
+    tune.track.log(profit=aggregated.loc["Total profit"])
 
 
 def stoploss(freqs=["daily"], thresh=[1, 2, 3], stoploss=[2, 3, 4, 5, 6], save=save):
@@ -219,3 +283,5 @@ def stoploss(freqs=["daily"], thresh=[1, 2, 3], stoploss=[2, 3, 4, 5, 6], save=s
                     {"threshold": thresh[i], "stoploss": stoploss[j], "name": newnameh}
                 )
                 simulate(scenarioh)
+
+

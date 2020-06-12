@@ -3,6 +3,7 @@ from analysis import descriptive_stats, descriptive_frame, summarize, aggregate
 from helpers import load_results
 from formatting import beautify, standardize_results
 from config import paper1_results
+import pandas as pd
 
 def test_results_table():
     newbase = paper1_results
@@ -38,3 +39,4 @@ def test_results_table():
     agg.index = agg.index.to_flat_index()
     agg.columns = [str(column) for column in agg.columns]
     assert agg.equals(pd.read_parquet("results_table_reference.parquet"))
+num_nominatednum_nominated

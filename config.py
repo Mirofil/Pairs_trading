@@ -24,9 +24,24 @@ data_path = version + r"concatenated_price_data" + os.sep
 save = version + r"results" + os.sep
 save_path_graphs = version + r"graphs" + os.sep
 save_path_tables = version + r"tables" + os.sep
-NUMOFPROCESSES = 35
+NUMOFPROCESSES = 1
 paper1_data_path = "/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWconcatenated_price_data"
 paper1_results = "/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWresults"
+
+standard_result_metrics_from_desc_stats = [
+    "Monthly profit",
+    "Annual profit",
+    "Total profit",
+    "Annualized Sharpe",
+    "Trading period Sharpe",
+    "Number of trades",
+    "Roundtrip trades",
+    "Avg length of position",
+    "Pct of winning trades",
+    "Max drawdown",
+    "Nominated pairs",
+    "Traded pairs",
+]
 
 config = {}
 config["start_date"] = start_date

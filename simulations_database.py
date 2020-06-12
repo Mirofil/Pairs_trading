@@ -1,5 +1,5 @@
 import datetime
-from config import start_date, end_date
+from config import start_date, end_date, data_path, save, paper1_data_path, paper1_results
 
 
 def generate_scenario(
@@ -7,18 +7,44 @@ def generate_scenario(
     lag=1,
     txcost=0.003,
     training_delta=[2, 0, 0],
-    cutoff=0.7,
+    volume_cutoff=0.7,
     formation_delta=[4, 0, 0],
     start=start_date,
     end=end_date,
-    jump=[1,0,0],
-    methods='dist',
+    jump=[1, 0, 0],
+    method="dist",
     dist_num=20,
     threshold=2,
     stoploss=100,
-    name='scenarioX'
+    redo_prefiltered=False,
+    redo_preprocessed=False,
+    truncate=True,
+    name="scenarioX",
+    data_path = paper1_data_path,
+    save=paper1_results
 ):
-    pass
+    return {
+        "freq": freq,
+        "lag": lag,
+        "txcost": txcost,
+        "training_delta": training_delta,
+        "volume_cutoff": volume_cutoff,
+        "training_delta": [2, 0, 0],
+        'formation_delta': [4,0,0],
+        'start':start_date,
+        'end':end_date,
+        'jump':[1,0,0],
+        'method':'dist',
+        'dist_num':dist_num,
+        'threshold':threshold,
+        'stoploss':stoploss,
+        'redo_prefiltered':redo_prefiltered,
+        'redo_preprocessed':redo_preprocessed,
+        'truncate':True,
+        'name':name,
+        'data_path':data_path,
+        'save':save
+    }
 
 
 # Order sensitive!
