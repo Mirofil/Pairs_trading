@@ -195,7 +195,7 @@ def descriptive_stats(
     return stats
 
 
-def descriptive_frame(olddf):
+def descriptive_frame(olddf, show_progress_bar=False):
     # this should be a subset of the statistics from descriptive_stats I think
     diag = [
         "Monthly profit",
@@ -226,7 +226,7 @@ def descriptive_frame(olddf):
 
     # This is meant to be iteration over all the backtest indexes (0,1,..,N)
     for backtest_index, _ in tqdm(
-        df.groupby(level=0), desc="Constructing descriptive frames over backtests"
+        df.groupby(level=0), desc="Constructing descriptive frames over backtests", disable= not show_progress_bar
     ):
 
         test_pair = olddf.loc[backtest_index].index.unique(level=0)[0]

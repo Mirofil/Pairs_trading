@@ -39,4 +39,3 @@ def test_results_table():
     agg.index = agg.index.to_flat_index()
     agg.columns = [str(column) for column in agg.columns]
     assert agg.equals(pd.read_parquet("results_table_reference.parquet"))
-num_nominatednum_nominated

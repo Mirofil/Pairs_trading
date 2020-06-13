@@ -39,12 +39,10 @@ from analysis import (
     compute_period_length,
     compute_cols_from_freq,
 )
+from pandas.io.json._normalize import nested_to_record    
 
 num_of_processes = 1
-pd.options.mode.chained_assignment = None
 
-
-analysis = tune.run(simulate, config={**generate_scenario()})
 
 def simulate(
     params
@@ -59,7 +57,7 @@ def simulate(
     freq = params["freq"]
     lag = params["lag"]
     txcost = params["txcost"]
-    training_delta = params["training_delta"]
+    training_delta_raw = params["training_delta"]
     volume_cutoff = params["volume_cutoff"]
     formation_delta = params["formation_delta"]
     start = params["start"]
@@ -77,6 +75,7 @@ def simulate(
     redo_preprocessed = params["redo_preprocessed"]
     truncate = params["truncate"]
     volumne_cutoff = params["volume_cutoff"]
+    show_progress_bar = params["show_progress_bar"]
 
     files = os.listdir(data_path)
     paths = [
@@ -86,13 +85,13 @@ def simulate(
     ]
     names = [file.partition(".")[0] for file in files]
 
-    formationdelta = relativedelta(
+    formation_delta = relativedelta(
         months=formation_delta[0], days=formation_delta[1], hours=formation_delta[2]
     )
-    trainingdelta = relativedelta(
-        months=training_delta[0], days=training_delta[1], hours=training_delta[2]
+    training_delta = relativedelta(
+        months=training_delta_raw[0], days=training_delta_raw[1], hours=training_delta_raw[2]
     )
-    jumpdelta = relativedelta(months=jump[0], days=jump[1], hours=jump[2])
+    jump_delta = relativedelta(months=jump[0], days=jump[1], hours=jump[2])
     # 5000 is arbirtrarily high limit that will never be reached - but the
     print("Starting " + scenario)
     print("\n")
@@ -104,11 +103,10 @@ def simulate(
     backtests = []
 
     for i in tqdm(
-        range(50000), desc="Starting nth iteration of the formation-trading loop"
+        range(50000), desc="Starting nth iteration of the formation-trading loop", disable = not show_progress_bar
     ):
-        formation = (start + i * jumpdelta, start + formationdelta + i * jumpdelta)
-        trading = (formation[1], formation[1] + trainingdelta)
-        print("Starting: " + str(formation) + " at " + str(datetime.datetime.now()))
+        formation = (start + i * jump_delta, start + formation_delta + i * jump_delta)
+        trading = (formation[1], formation[1] + training_delta)
         if trading[1] > end:
             if truncate == True:
                 trading = (trading[0], end)
@@ -208,9 +206,9 @@ def simulate(
 
     # backtests = [descriptive_stats(backtest) for backtest in backtests]
     descriptive_frames = descriptive_frame(
-        pd.concat(backtests, keys=range(len(backtests)))
+        pd.concat(backtests, keys=range(len(backtests))), show_progress_bar=show_progress_bar
     )
-    trading_period_days = compute_period_length(training_delta)
+    trading_period_days = compute_period_length(training_delta_raw)
     multiindex_from_product_cols = compute_cols_from_freq([freq], [method])
     aggregated = aggregate(
         [descriptive_frames],
@@ -222,7 +220,8 @@ def simulate(
     )
     serializable_columns = ['/'.join(x) for x in aggregated.columns.to_flat_index().values]
     aggregated.columns = serializable_columns
-    tune.track.log(profit=aggregated.loc["Total profit"])
+    for col in aggregated.columns:
+        tune.track.log(name=col, **aggregated[col].to_dict())
 
 
 def stoploss(freqs=["daily"], thresh=[1, 2, 3], stoploss=[2, 3, 4, 5, 6], save=save):

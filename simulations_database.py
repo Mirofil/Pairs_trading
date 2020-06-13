@@ -21,7 +21,8 @@ def generate_scenario(
     truncate=True,
     name="scenarioX",
     data_path = paper1_data_path,
-    save=paper1_results
+    save=paper1_results,
+    show_progress_bar=False
 ):
     return {
         "freq": freq,

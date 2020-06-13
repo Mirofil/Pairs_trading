@@ -14,7 +14,7 @@ from pairs_trading_engine import (calculate_profit, pick_range,
                                   weights_from_signals)
 pd.options.mode.chained_assignment = None
 formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 1, 7]))
-trading = (formation[1], formation[1] + relativedelta(days=3))
+trading = (formation[1], formation[1] + relativedelta(months=2))
 
 root_folder = "paper1"
 
@@ -35,7 +35,7 @@ prefiltered = np.load(os.path.join(root_folder, "NEWprefiltered0_7.npy"))
 #%%#
 # preprocessed=preprocess(prefiltered[:,0], first_n=0, freq='5T')
 # preprocessed.to_pickle(version+'preprocessed5T0_7.pkl')
-preprocessed = pd.read_pickle(os.path.join(root_folder, "NEWpreprocessed5T0_7.pkl"))
+preprocessed = pd.read_pickle(os.path.join(root_folder, "NEWpreprocessed1D0_7.pkl"))
 
 #%%
 # #13s per iteration (local)
