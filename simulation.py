@@ -5,41 +5,25 @@ from typing import *
 
 import numpy as np
 import pandas as pd
-from dateutil.relativedelta import relativedelta
-from tqdm import tqdm
-from ray import tune
 import ray
+from dateutil.relativedelta import relativedelta
+from pandas.io.json._normalize import nested_to_record
+from ray import tune
+from tqdm import tqdm
 
+from analysis import (
+    aggregate, compute_cols_from_freq, compute_period_length,
+    descriptive_frame, descriptive_stats, summarize)
 
 from cointmethod import coint_spread, cointegration, find_integrated
-from config import (
-    NUMOFPROCESSES,
-    data_path,
-    end_date,
-    save,
-    start_date,
-    version,
-    standard_result_metrics_from_desc_stats,
-)
+from config import (NUMOFPROCESSES, data_path, end_date, save,
+                    standard_result_metrics_from_desc_stats, start_date,
+                    version)
 from distancemethod import distance, distance_spread
 from helpers import data_path, prefilter, preprocess
-from pairs_trading_engine import (
-    calculate_profit,
-    pick_range,
-    propagate_weights,
-    signals,
-    sliced_norm,
-    weights_from_signals,
-)
-from analysis import (
-    descriptive_stats,
-    descriptive_frame,
-    summarize,
-    aggregate,
-    compute_period_length,
-    compute_cols_from_freq,
-)
-from pandas.io.json._normalize import nested_to_record    
+from pairs_trading_engine import (calculate_profit, pick_range,
+                                  propagate_weights, signals, sliced_norm,
+                                  weights_from_signals)
 
 num_of_processes = 1
 
@@ -282,5 +266,4 @@ def stoploss(freqs=["daily"], thresh=[1, 2, 3], stoploss=[2, 3, 4, 5, 6], save=s
                     {"threshold": thresh[i], "stoploss": stoploss[j], "name": newnameh}
                 )
                 simulate(scenarioh)
-
 
