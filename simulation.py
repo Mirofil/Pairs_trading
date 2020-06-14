@@ -76,7 +76,7 @@ def simulate(
         months=training_delta_raw[0], days=training_delta_raw[1], hours=training_delta_raw[2]
     )
     jump_delta = relativedelta(months=jump[0], days=jump[1], hours=jump[2])
-    # 5000 is arbirtrarily high limit that will never be reached - but the
+
     print("Starting " + scenario)
     print("\n")
     if not os.path.isdir(os.path.join(save, scenario)):
@@ -101,7 +101,9 @@ def simulate(
 
         if redo_prefiltered == True:
             prefiltered = prefilter(paths, cutoff=volume_cutoff)
-            np.save(os.path.join(save, str(i) + "x" + str(volume_cutoff), prefiltered))
+            if save is not None:
+                np.save(os.path.join(save, str(i) + "x" + str(volume_cutoff), prefiltered))
+
         else:
             prefiltered_fpath = os.path.join(
                 save,
@@ -112,10 +114,11 @@ def simulate(
                 np.save(prefiltered_fpath, prefiltered)
             else:
                 prefiltered = np.load(prefiltered_fpath)
+
         if redo_preprocessed == True:
             preprocessed = preprocess(prefiltered[:, 0], first_n=0, freq=freq)
-            preprocessed.to_pickle(os.path.join(save, str(i) + "y" + str(freq)))
-
+            if save is not None:
+                preprocessed.to_pickle(os.path.join(save, str(i) + "y" + str(freq)))
         else:
             preprocessed_fpath = os.path.join(
                 save,
@@ -130,7 +133,8 @@ def simulate(
                 preprocessed.to_pickle(preprocessed_fpath)
             else:
                 preprocessed = pd.read_pickle(preprocessed_fpath)
-        if "coint" in method:
+
+        if "coint" == method:
             coint_head = pick_range(preprocessed, formation[0], formation[1])
             k = cointegration(
                 find_integrated(coint_head), num_of_processes=num_of_processes
@@ -143,7 +147,7 @@ def simulate(
                 betas=[item[1] for item in k],
             )
             coint_spreads.sort_index(inplace=True)
-            coint_signal = signals(
+            trading_signals = signals(
                 coint_spreads,
                 timeframe=trading,
                 formation=formation,
@@ -152,23 +156,14 @@ def simulate(
                 stoploss=stoploss,
                 num_of_processes=num_of_processes,
             )
-            # I think this is useless so let me comment it out
-            # coint_signal = signals_numeric(coint_signal)
-            weights_from_signals(coint_signal, cost=txcost)
-            propagate_weights(coint_signal, formation)
-            calculate_profit(coint_signal, cost=txcost)
-            if save is not None:
-                coint_signal.to_pickle(
-                    os.path.join(save, scenario, str(i) + "coint_signal.pkl")
-                )
-            backtests.append(coint_signal)
-        if "dist" in method:
+            backtests.append(trading_signals)
+        if "dist" == method:
             head = pick_range(preprocessed, formation[0], formation[1])
             distances = distance(head, num=dist_num)
             short_y = pick_range(preprocessed, formation[0], trading[1])
             spreads = distance_spread(short_y, distances["viable_pairs"], formation)
             spreads.sort_index(inplace=True)
-            dist_signal = signals(
+            trading_signals = signals(
                 spreads,
                 timeframe=trading,
                 formation=formation,
@@ -177,14 +172,15 @@ def simulate(
                 stoploss=stoploss,
                 num_of_processes=num_of_processes,
             )
-            weights_from_signals(dist_signal, cost=txcost)
-            propagate_weights(dist_signal, formation)
-            calculate_profit(dist_signal, cost=txcost)
-            if save is not None:
-                dist_signal.to_pickle(
-                    os.path.join(save, scenario, str(i) + "dist_signal.pkl")
-                )
-            backtests.append(dist_signal)
+        weights_from_signals(trading_signals, cost=txcost)
+        propagate_weights(trading_signals, formation)
+        calculate_profit(trading_signals, cost=txcost)
+        if save is not None:
+            trading_signals.to_pickle(
+                os.path.join(save, scenario, str(i) + f"{method}_signal.pkl")
+            )
+        backtests.append(trading_signals)
+
         if trading[1] == end_date:
             break
 

@@ -40,7 +40,7 @@ def prefilter(paths, start=start_date, end=end_date, cutoff=0.7):
         desc="Prefiltering pairs (based on volume and start/end of trading)",
     ):
         df = pd.read_csv(paths[i])
-        df.rename({"Opened": "Date"}, axis="columns", inplace=True)
+        df.rename({"Opened": "Date"}, axis="columns", inplace=True, errors='ignore')
         # filters out pairs that got listed past start_date
         if (pd.to_datetime(df.iloc[0]["Date"]) < pd.to_datetime(start)) and (
             pd.to_datetime(df.iloc[-1]["Date"]) > pd.to_datetime(end)
@@ -63,7 +63,7 @@ def prefilter(paths, start=start_date, end=end_date, cutoff=0.7):
     return np.array(admissible)
 
 
-def resample(df, freq="30T", start=start_date, fill=True):
+def resample(df, freq: str ="1D", start=start_date, fill: bool =True):
     """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
     Close prices get last values, Volume gets summed. 
     Only indexes past start_date are returned to have a common start for all series 
@@ -85,7 +85,7 @@ def resample(df, freq="30T", start=start_date, fill=True):
     return newdf[newdf.index > pd.to_datetime(start)]
 
 
-def preprocess(paths, freq:str ="60T", end=end_date, first_n: int=0, start=start_date):
+def preprocess(paths, freq:str ="1D", end=end_date, first_n: int=0, start=start_date):
     """Finishes the preprocessing based on prefiltered paths. We filter out pairs that got delisted early
     (they need to go at least as far as end_date). Then all the eligible time series for pairs formation analysis
     are concated into one big DF with a multiIndex (pair, time)."""
