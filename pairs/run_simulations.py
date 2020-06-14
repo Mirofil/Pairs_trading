@@ -3,13 +3,13 @@ import numpy as np
 import pandas as pd
 import datetime
 from dateutil.relativedelta import relativedelta
-from distancemethod import distance, distance_spread
-from helpers import data_path, prefilter, preprocess
-from cointmethod import coint_spread, cointegration, find_integrated
-from config import NUMOFPROCESSES, data_path, end_date, save, start_date, version
-from simulation import simulate
-from simulations_database import *
-from pairs_trading_engine import (
+from pairs.distancemethod import distance, distance_spread
+from pairs.helpers import data_path, prefilter, preprocess
+from pairs.cointmethod import coint_spread, cointegration, find_integrated
+from pairs.config import NUMOFPROCESSES, data_path, end_date, save, start_date, version
+from pairs.simulation import simulate
+from pairs.simulations_database import *
+from pairs.pairs_trading_engine import (
     calculate_profit,
     pick_range,
     propagate_weights,

@@ -15,7 +15,7 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from config import data_path, end_date, start_date
+from pairs.config import data_path, end_date, start_date
 
 def pick_range(y, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""

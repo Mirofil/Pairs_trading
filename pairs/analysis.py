@@ -262,6 +262,8 @@ def compute_period_length(specification:List):
     return specification[0]*30+specification[1]
 
 def compute_cols_from_freq(freqs:List[str], methods:List[str]):
+    """
+    >>> compute_cols_from_freq(["1D"], ["dist"]) """
     results = []
     for freq in freqs:
         if freq[-1] == 'D':

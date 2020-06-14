@@ -1,6 +1,6 @@
 import shap
 import lightgbm as lgb
-from simulations_database import generate_scenario
+from pairs.simulations_database import generate_scenario
 
 
 
