@@ -10,16 +10,16 @@ import statsmodels
 import seaborn as sns
 import multiprocess as mp
 from dateutil.relativedelta import relativedelta
-from distancemethod import distance, distance_spread
-from helpers import data_path, prefilter, preprocess
-from cointmethod import coint_spread, cointegration, find_integrated
-from simulation import simulate
-from simulations_database import *
-from pairs_trading_engine import (calculate_profit, pick_range,
+from pairs.distancemethod import distance, distance_spread
+from pairs.helpers import data_path, prefilter, preprocess
+from pairs.cointmethod import coint_spread, cointegration, find_integrated
+from pairs.simulation import simulate
+from pairs.simulations_database import *
+from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   propagate_weights, signals, sliced_norm,
                                   weights_from_signals)
 
-from analysis import descriptive_stats
+from pairs.analysis import descriptive_stats
 
 
 def test_distance():
