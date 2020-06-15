@@ -19,11 +19,11 @@ trading = (formation[1], formation[1] + relativedelta(months=2))
 root_folder = "paper1"
 
 #%%
-# files = os.listdir(data_path)
-# #we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
-# #it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
-# paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
-# names = [file.partition('.')[0] for file in files]
+files = os.listdir(data_path)
+#we exclude CLOAKBTC because theres some data-level mixed types mistake that breaks prefilter and it would get deleted anyways
+#it also breakts at ETHBTC (I manually deleted the first wrong part in Excel)
+paths = [data_path + x for x in files if x not in ['BTCUSDT.csv', 'ETHUSDT.csv', 'CLOAKBTC.csv']]
+names = [file.partition('.')[0] for file in files]
 # df = pd.read_csv(paths[0])
 # idx=pd.IndexSlice
 # #%%

@@ -1,8 +1,8 @@
 
-from analysis import descriptive_stats, descriptive_frame, summarize, aggregate
-from helpers import load_results
-from formatting import beautify, standardize_results
-from config import paper1_results
+from pairs.analysis import descriptive_stats, descriptive_frame, summarize, aggregate
+from pairs.helpers import load_results
+from pairs.formatting import beautify, standardize_results
+from pairs.config import paper1_results
 import pandas as pd
 
 def test_results_table():

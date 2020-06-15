@@ -1,5 +1,5 @@
-from helpers import name_from_path
-from config import paper1_data_path
+from pairs.helpers import name_from_path
+from pairs.config import paper1_data_path
 
 
 def test_name_from_path():

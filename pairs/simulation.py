@@ -67,7 +67,7 @@ def simulate(
         for x in files
         if x not in ["BTCUSDT.csv", "ETHUSDT.csv", "CLOAKBTC.csv"]
     ]
-    names = [file.partition(".")[0] for file in files]
+
 
     formation_delta = relativedelta(
         months=formation_delta[0], days=formation_delta[1], hours=formation_delta[2]

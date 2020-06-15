@@ -15,7 +15,7 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from config import data_path
+from pairs.config import data_path
 
 
 def corrs(df):
