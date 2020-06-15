@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from pairs.config import (NUMOFPROCESSES, data_path, end_date, save,
-                          start_date, version, TradingUniverse)
+from pairs.config import (TradingUniverse)
 from pairs.helpers import name_from_path, resample
 
 
@@ -96,8 +95,8 @@ class CryptoDataset:
                     names=["Pair", "Time"],
                 )
                 preprocessed.append(newdf.set_index(multiindex))
-        concat = pd.concat(preprocessed)
+        all_time_series = pd.concat(preprocessed)
         # concat.groupby(level=0)['Price']=concat.groupby(level=0)['Price'].shift(0)-concat.groupby(level=0)['Price'][0]
         # this step has to be done here even though it thematically fits end of prefilter since its not fully truncated by date and we would have to at least subtract the first row but whatever
         # concat.groupby(level=0).apply(lambda x: x['Price']=x['logReturns'].cumsum())
-        return pd.concat(preprocessed)
+        return all_time_series
