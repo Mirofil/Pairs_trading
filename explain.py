@@ -82,3 +82,5 @@ shap.dependence_plot("threshold", shap_values, x)
 # IMPORTANCES OF ALL FEATURES
 shap.summary_plot(shap_values, x, plot_type="bar")
 shap.summary_plot(shap_values, x)
+
+shap.summary_plot(explainer.shap_interaction_values(x), x)

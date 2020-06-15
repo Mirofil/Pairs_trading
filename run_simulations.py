@@ -26,7 +26,9 @@ if __name__ == "__main__":
         simulate,
         name="results",
         config=generate_scenario(
-            threshold=tune.grid_search(list(np.arange(0.5, 2, 0.5))),
-            lag=tune.grid_search(list(np.arange(1,3,1)))
+            threshold=tune.grid_search(list(np.arange(0.5, 6, 0.5))),
+            lag=tune.grid_search(list(np.arange(0,4,1))),
+            dist_num = tune.grid_search(list(np.arange(10, 70, 20))),
+            txcost=tune.grid_search([0,0.003,0.005])
         ),
     )
