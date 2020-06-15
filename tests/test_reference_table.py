@@ -4,6 +4,7 @@ from pairs.helpers import load_results
 from pairs.formatting import beautify, standardize_results
 from pairs.config import paper1_results
 import pandas as pd
+import os
 
 def test_results_table():
     newbase = paper1_results
@@ -38,4 +39,6 @@ def test_results_table():
 
     agg.index = agg.index.to_flat_index()
     agg.columns = [str(column) for column in agg.columns]
-    assert agg.equals(pd.read_parquet("results_table_reference.parquet"))
+
+    parent_dir = os.path.dirname(__file__)
+    assert agg.equals(pd.read_parquet(os.path.join(parent_dir, "results_table_reference.parquet")))

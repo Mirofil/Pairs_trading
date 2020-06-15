@@ -16,10 +16,14 @@ class USDataset:
         self.config = config
         super().__init__()
 
-    @staticmethod
-    def prefilter(paths, start, end=end_date, volume_cutoff=0.7):
+    def prefilter(self):
         """ Prefilters the time series so that we have only moderately old pairs (listed past start_date)
         and uses a volume percentile cutoff. The output is in array (pair, its volume) """
+        paths = self.paths
+        start = config["start_date"]
+        end = config["end_date"]
+        volume_cutoff = config["volume_cutoff"]
+        
         idx = pd.IndexSlice
         admissible = []
         for i in tqdm(
@@ -45,31 +49,39 @@ class USDataset:
         # sort by Volume and pick upper percentile
         admissible.sort(key=lambda x: x[1])
         admissible = admissible[int(np.round(len(admissible) * volume_cutoff)) :]
-        return np.array(admissible)
 
-    @staticmethod 
-    def preprocess(paths, freq:str ="1D", end=end_date, first_n: int=0, start=start_date):
+        result = np.array(admissible)
+        self.prefiltered_paths = result
+
+        return result
+ 
+    def preprocess(self, first_n: int=0):
         """Finishes the preprocessing based on prefiltered paths. We filter out pairs that got delisted early
         (they need to go at least as far as end_date). Then all the eligible time series for pairs formation analysis
         are concated into one big DF with a multiIndex (pair, time).
         Params:
             first_n: Useful for smoketests; avoids taking the first n items"""
+        prefiltered_paths = self.prefiltered_paths
+        freq = self.config["freq"]
+        end_date = self.config["end_date"]
+        start_date = self.config["start_date"]
 
-        paths = paths[first_n:]
+        prefiltered_paths = prefiltered_paths[first_n:][:,0]
         preprocessed = []
-        for i in tqdm(range(len(paths)), desc="Preprocessing files"):
-            stock_price = pd.read_csv(paths[i])
+        for i in tqdm(range(len(prefiltered_paths)), desc="Preprocessing files"):
+            stock_price = pd.read_csv(prefiltered_paths[i])
             stock_price = stock_price.sort_index()
-            stock_price = resample(stock_price, freq, start=start)
+            stock_price = resample(stock_price, freq, start=start_date)
             stock_price = stock_price.sort_index()
             # truncates the time series to a slightly earlier end date
             # because the last period is inhomogeneous due to pulling from API
-            if stock_price.index[-1] > pd.to_datetime(end):
-                newdf = stock_price[stock_price.index < pd.to_datetime(end)]
+            if stock_price.index[-1] > pd.to_datetime(end_date):
+                newdf = stock_price[stock_price.index < pd.to_datetime(end_date)]
                 multiindex = pd.MultiIndex.from_product(
-                    [[name_from_path(paths[i])], list(newdf.index.values)],
+                    [[name_from_path(prefiltered_paths[i])], list(newdf.index.values)],
                     names=["Pair", "Time"],
                 )
                 preprocessed.append(newdf.set_index(multiindex))
         all_time_series = pd.concat(preprocessed)
+        self.preprocessed_paths = all_time_series
         return all_time_series

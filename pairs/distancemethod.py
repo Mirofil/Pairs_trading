@@ -5,9 +5,18 @@ import datetime
 import matplotlib.pyplot as plt
 from collections import namedtuple, OrderedDict
 from pairs.pairs_trading_engine import sliced_norm
+from tqdm import tqdm
+import sklearn.metrics
 
+new = []
+x=newdf['normPrice'].reset_index(level=1)
+for stock in newdf['normPrice'].index.unique(0):
+    new.append(pd.DataFrame(pd.Series(x.loc[stock, 'normPrice'].values, index = x.loc[stock, 'Time'].values)).T)
+interim = pd.concat(new)
+interim.index = newdf['normPrice'].index.unique(0)
+np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
 
-def distance(df: pd.DataFrame, num:int =5):
+def distance(df: pd.DataFrame, num:int =5, method='modern'):
     """
     Args:
         df (pd.DataFrame): Df is expected to be a Multi-Indexed dataframe (result of helpers/preprocess)
@@ -22,8 +31,7 @@ def distance(df: pd.DataFrame, num:int =5):
     pairs = newdf.index.unique(0)
     dim = len(pairs)
     # gonna construct N*N matrix of pairwise distances
-    distances = np.zeros((dim, dim))
-    for pair in pairs:
+    for pair in tqdm(pairs, desc = 'Calculating price statistics across pairs'):
         newdf.loc[pair, "logReturns"] = (
             np.log(newdf.loc[pair, "Close"]) - np.log(newdf.loc[pair, "Close"].shift(1))
         ).values
@@ -32,17 +40,31 @@ def distance(df: pd.DataFrame, num:int =5):
             / newdf.loc[pair, "logReturns"].std()
         ).values
         newdf.loc[pair, "normPrice"] = newdf.loc[pair, "normReturns"].cumsum().values
-    # the distances matrix will be symmetric (think of covariance matrix)
-    # pairwise SSD calculation
-    for i in range(distances.shape[0]):
-        for j in range(i, distances.shape[1]):
-            distances[i, j] = np.sum(
-                np.power(
-                    newdf.loc[pairs[i], "normPrice"] - newdf.loc[pairs[j], "normPrice"],
-                    2,
+    
+    newdf = newdf.astype(np.float32)
+    if method == 'oldschool':
+        distances = np.zeros((dim, dim), dtype=np.float32)
+
+        # the distances matrix will be symmetric (think of covariance matrix)
+        # pairwise SSD calculation
+        for i in tqdm(range(dim), desc= 'Going across X axis of distance matrix'):
+            for j in range(i, dim):
+                distances[i, j] = np.sum(
+                    np.power(
+                        newdf.loc[pairs[i], "normPrice"] - newdf.loc[pairs[j], "normPrice"],
+                        2
+                    )
                 )
-            )
-            distances[j, i] = distances[i, j]
+                distances[j, i] = distances[i, j]
+    elif method == 'modern':
+        new = []
+        x=newdf['normPrice'].reset_index(level=1)
+        for stock in newdf['normPrice'].index.unique(0):
+            new.append(pd.DataFrame(pd.Series(x.loc[stock, 'normPrice'].values, index = x.loc[stock, 'Time'].values)).T)
+        interim = pd.concat(new)
+        interim.index = newdf['normPrice'].index.unique(0)
+        distances = np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
+
     # we use the distance matrix as upper triangular to avoid duplicates in sorting
     triang = np.triu(distances)
     sorted_array = np.argsort(triang, axis=None)

@@ -11,7 +11,8 @@ class TradingUniverse:
         root_folder="NEW",
         save_path_graphs=None,
         save_path_tables=None,
-        freq='1D'
+        freq='1D',
+        data_path=None
     ):
         self.start_date = start_date
         self.end_date = end_date
@@ -28,6 +29,7 @@ class TradingUniverse:
         self.save_path_results = root_folder + "results" + os.sep
 
         self.freq = freq
+        self.data_path = data_path
 
     def __getitem__(self, key):
         return getattr(self, key)

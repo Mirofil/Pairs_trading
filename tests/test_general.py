@@ -44,7 +44,7 @@ def test_distance():
     #%%
     start = datetime.datetime.now()
     short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
-    spreads = distance_spread(short_preprocessed, distances[2], formation)
+    spreads = distance_spread(short_preprocessed, distances['viable_pairs'], formation)
     end = datetime.datetime.now()
     print("Distance spreads were found in: " + str(end - start))
     # this is some technical detail needed later?
@@ -68,8 +68,10 @@ def test_distance():
     end = datetime.datetime.now()
     print("Profit calculation was done in: " + str(end - start))
 
-    dist_signal_reference = pd.read_parquet("dist_signal_reference.parquet")
+    parent_dir = os.path.dirname(__file__)
 
-    assert dist_signal.equals(dist_signal_reference)
+    dist_signal_reference = pd.read_parquet(os.path.join(parent_dir, "dist_signal_reference.parquet"))
+
+    assert descriptive_stats(dist_signal).astype(np.float32).round(2).equals((descriptive_stats(dist_signal_reference).astype(np.float32).round(2)))
 
 
