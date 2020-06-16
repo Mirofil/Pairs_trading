@@ -140,38 +140,30 @@ def simulate(
                 find_integrated(coint_head), num_of_processes=num_of_processes
             )
             short_y = pick_range(preprocessed, formation[0], trading[1])
-            coint_spreads = coint_spread(
+            spreads = coint_spread(
                 short_y,
                 [item[0] for item in k],
                 timeframe=formation,
                 betas=[item[1] for item in k],
             )
-            coint_spreads.sort_index(inplace=True)
-            trading_signals = signals(
-                coint_spreads,
-                timeframe=trading,
-                formation=formation,
-                lag=lag,
-                threshold=threshold,
-                stoploss=stoploss,
-                num_of_processes=num_of_processes,
-            )
-            backtests.append(trading_signals)
+            spreads.sort_index(inplace=True)
+
         if "dist" == method:
             head = pick_range(preprocessed, formation[0], formation[1])
             distances = distance(head, num=dist_num)
             short_y = pick_range(preprocessed, formation[0], trading[1])
             spreads = distance_spread(short_y, distances["viable_pairs"], formation)
             spreads.sort_index(inplace=True)
-            trading_signals = signals(
-                spreads,
-                timeframe=trading,
-                formation=formation,
-                lag=lag,
-                threshold=threshold,
-                stoploss=stoploss,
-                num_of_processes=num_of_processes,
-            )
+            
+        trading_signals = signals(
+            spreads,
+            timeframe=trading,
+            formation=formation,
+            lag=lag,
+            threshold=threshold,
+            stoploss=stoploss,
+            num_of_processes=num_of_processes,
+        )
         weights_from_signals(trading_signals, cost=txcost)
         propagate_weights(trading_signals, formation)
         calculate_profit(trading_signals, cost=txcost)

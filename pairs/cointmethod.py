@@ -10,7 +10,37 @@ import itertools
 import timeit
 import multiprocess as mp
 from sklearn.linear_model import LinearRegression
+from tqdm import tqdm
+from pairs.stattools_alt import coint
+try:
+    import CyURT as urt
+except:
+    pass
 
+
+def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False):
+    """Uses ADF test to decide I(1) as in the first step of AEG test. 
+    Takes the data from preprocess and filters out stationary series,
+    returning data in the same format. 
+    DF Test has unit root as null"""
+    pairs = df.index.unique(0)
+    integrated = []
+    df["logClose"] = np.log(df["Close"].values)
+    for pair in tqdm(pairs, desc='Finding integrated time series'):
+        df.loc[pair, "logReturns"] = (
+            np.log(df.loc[pair, "Close"]) - np.log(df.loc[pair, "Close"].shift(1))
+        ).values
+        pvalue = urt.ADF_d(
+            df.loc[pair, "logClose"].fillna(method="ffill").values,
+            trend=trend,
+            regression=regression
+        )
+        pvalue.show()
+        pvalue = pvalue.pval
+        if pvalue >= confidence:
+            integrated.append(pair)
+
+    return df.loc[integrated]
 
 def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
@@ -50,7 +80,7 @@ def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
     else:
         pairs = df.index.unique(0)
         integrated = []
-        for pair in pairs:
+        for pair in tqdm(pairs, desc='Finding integrated time series'):
             df.loc[pair, "logReturns"] = (
                 np.log(df.loc[pair, "Close"]) - np.log(df.loc[pair, "Close"].shift(1))
             ).values
@@ -63,6 +93,22 @@ def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
                 integrated.append(pair)
         return df.loc[integrated]
 
+
+def cointegration_fast(df, confidence=0.05):
+    pairs = df.index.unique(0)
+    cointegrated = []
+    df["logClose"] = df["logClose"].fillna(method="ffill")
+    df["logClose"].fillna(method="ffill").values
+    for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs'):
+        x = df.loc[pair[0], "logClose"].values
+        y = df.loc[pair[1], "logClose"].values
+        if coint(x, y)[1] <= confidence:
+            # model = sm.OLS(y, sm.add_constant(x))
+            # results = model.fit()
+            fit = urt.OLS_d(y, sm.add_constant(x), True)
+            # the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
+            cointegrated.append([pair, fit.param])
+    return cointegrated
 
 def cointegration(df, confidence=0.05, num_of_processes=1):
     if num_of_processes > 1:
@@ -83,7 +129,7 @@ def cointegration(df, confidence=0.05, num_of_processes=1):
                 y = df.loc[pair[1], "logClose"].fillna(method="ffill").values
                 y = y.reshape((y.shape[0], 1))
                 if ts.coint(x, y)[1] <= confidence:
-                    model = sm.OLS(y, sm.add_constant(x))
+                    model = sm.OLS(y, x)
                     results = model.fit()
                     # the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
                     cointegrated.append([pair, results.params])
@@ -98,7 +144,7 @@ def cointegration(df, confidence=0.05, num_of_processes=1):
     else:
         pairs = df.index.unique(0)
         cointegrated = []
-        for pair in itertools.combinations(pairs, 2):
+        for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs'):
             x = df.loc[pair[0], "logClose"].fillna(method="ffill").values
             x = x.reshape((x.shape[0], 1))
             y = df.loc[pair[1], "logClose"].fillna(method="ffill").values

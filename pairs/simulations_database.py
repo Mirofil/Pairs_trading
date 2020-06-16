@@ -44,7 +44,8 @@ def generate_scenario(
         'truncate':True,
         'name':name,
         'data_path':data_path,
-        'save':save
+        'save':save,
+        'show_progress_bar':show_progress_bar
     }
 
 

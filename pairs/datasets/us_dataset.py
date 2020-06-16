@@ -20,9 +20,9 @@ class USDataset:
         """ Prefilters the time series so that we have only moderately old pairs (listed past start_date)
         and uses a volume percentile cutoff. The output is in array (pair, its volume) """
         paths = self.paths
-        start = config["start_date"]
-        end = config["end_date"]
-        volume_cutoff = config["volume_cutoff"]
+        start = self.config["start_date"]
+        end = self.config["end_date"]
+        volume_cutoff = self.config["volume_cutoff"]
         
         idx = pd.IndexSlice
         admissible = []

@@ -7,14 +7,15 @@ from collections import namedtuple, OrderedDict
 from pairs.pairs_trading_engine import sliced_norm
 from tqdm import tqdm
 import sklearn.metrics
+import re
 
-new = []
-x=newdf['normPrice'].reset_index(level=1)
-for stock in newdf['normPrice'].index.unique(0):
-    new.append(pd.DataFrame(pd.Series(x.loc[stock, 'normPrice'].values, index = x.loc[stock, 'Time'].values)).T)
-interim = pd.concat(new)
-interim.index = newdf['normPrice'].index.unique(0)
-np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
+# new = []
+# x=newdf['normPrice'].reset_index(level=1)
+# for stock in newdf['normPrice'].index.unique(0):
+#     new.append(pd.DataFrame(pd.Series(x.loc[stock, 'normPrice'].values, index = x.loc[stock, 'Time'].values)).T)
+# interim = pd.concat(new)
+# interim.index = newdf['normPrice'].index.unique(0)
+# np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
 
 def distance(df: pd.DataFrame, num:int =5, method='modern'):
     """
@@ -82,19 +83,19 @@ def distance(df: pd.DataFrame, num:int =5, method='modern'):
     return OrderedDict({'distances':distances, 'top_indexes':top_indexes, 'viable_pairs': viable_pairs, 'zipped': zipped, 'newdf':newdf})
 
 
-def distance_spread(df, viable_pairs, timeframe, betas=1):
+def distance_spread(df, viable_pairs, timeframe, betas=None):
     """Picks out the viable pairs of the original df (which has all pairs)
     and adds to it the normPrice Spread among others, as well as initially
     defines Weights and Profit """
     idx = pd.IndexSlice
     spreads = []
-    if betas == 1:
+    if betas == None:
         betas = [np.array([1, 1]) for i in range(len(viable_pairs))]
     for pair, coefs in zip(viable_pairs, betas):
         # labels will be IOTAADA rather that IOTABTCADABTC,
         # so we remove the last three characters
-        first = pair[0][:-3]
-        second = pair[1][:-3]
+        first = re.sub(r'USDT$|USD$|BTC$','', pair[0])
+        second = re.sub(r'USDT$|USD$|BTC$','', pair[1])
         composed = first + "x" + second
         multiindex = pd.MultiIndex.from_product(
             [[composed], df.loc[pair[0]].index], names=["Pair", "Time"]
@@ -124,13 +125,6 @@ def distance_spread(df, viable_pairs, timeframe, betas=1):
         second.columns = ["2" + x for x in second.columns]
         reindexed = (pd.concat([first, second], axis=1)).set_index(multiindex)
 
-        # normPriceOld = reindexed.normPrice
-        # reindexed.loc[:,'normPrice'] = (reindexed.loc[:,'normPrice']-reindexed.loc[:,'normPrice'].mean())/reindexed.loc[:,'normPrice'].std()
-        # possible deletion of useless columns to save memory..
-        # but maybe should be done earlier? Only normPrice
-        # should be relevant since its the spread at this point
-        # reindexed.drop(['Volume', 'Close', 'Returns'], axis = 1)
-        # reindexed['normPriceOld'] = normPriceOld
         spreads.append(newdf)
     return pd.concat(spreads)
 
