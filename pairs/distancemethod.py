@@ -17,7 +17,7 @@ import re
 # interim.index = newdf['normPrice'].index.unique(0)
 # np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
 
-def distance(df: pd.DataFrame, num:int =5, method='modern'):
+def distance(df: pd.DataFrame, num:int =5, method='modern', show_progress_bar=True):
     """
     Args:
         df (pd.DataFrame): Df is expected to be a Multi-Indexed dataframe (result of helpers/preprocess)
@@ -32,7 +32,7 @@ def distance(df: pd.DataFrame, num:int =5, method='modern'):
     pairs = newdf.index.unique(0)
     dim = len(pairs)
     # gonna construct N*N matrix of pairwise distances
-    for pair in tqdm(pairs, desc = 'Calculating price statistics across pairs'):
+    for pair in tqdm(pairs, desc = 'Calculating price statistics across pairs', disable= not show_progress_bar):
         newdf.loc[pair, "logReturns"] = (
             np.log(newdf.loc[pair, "Close"]) - np.log(newdf.loc[pair, "Close"].shift(1))
         ).values
@@ -83,7 +83,7 @@ def distance(df: pd.DataFrame, num:int =5, method='modern'):
     return OrderedDict({'distances':distances, 'top_indexes':top_indexes, 'viable_pairs': viable_pairs, 'zipped': zipped, 'newdf':newdf})
 
 
-def distance_spread(df, viable_pairs, timeframe, betas=None):
+def distance_spread(df, viable_pairs, timeframe, betas=None, show_progress_bar = True):
     """Picks out the viable pairs of the original df (which has all pairs)
     and adds to it the normPrice Spread among others, as well as initially
     defines Weights and Profit """
@@ -91,7 +91,7 @@ def distance_spread(df, viable_pairs, timeframe, betas=None):
     spreads = []
     if betas == None:
         betas = [np.array([1, 1]) for i in range(len(viable_pairs))]
-    for pair, coefs in zip(viable_pairs, betas):
+    for pair, coefs in tqdm(zip(viable_pairs, betas), desc = 'Calculating distance spreads', disable = not show_progress_bar, total=len(viable_pairs)):
         # labels will be IOTAADA rather that IOTABTCADABTC,
         # so we remove the last three characters
         first = re.sub(r'USDT$|USD$|BTC$','', pair[0])

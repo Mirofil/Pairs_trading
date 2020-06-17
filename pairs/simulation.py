@@ -44,8 +44,8 @@ def simulate(
     training_delta_raw = params["training_delta"]
     volume_cutoff = params["volume_cutoff"]
     formation_delta = params["formation_delta"]
-    start = params["start"]
-    end = params["end"]
+    start_date = params["start_date"]
+    end_date = params["end_date"]
     jump = params["jump"]
     method = params["method"]
     dist_num = params["dist_num"]
@@ -53,13 +53,14 @@ def simulate(
     stoploss = params["stoploss"]
     scenario = params["name"]
     data_path = params["data_path"]
-    save = params["save"]
+    save = params["save_path_results"]
     num_of_processes = 1
     redo_prefiltered = params["redo_prefiltered"]
     redo_preprocessed = params["redo_preprocessed"]
     truncate = params["truncate"]
-    volumne_cutoff = params["volume_cutoff"]
+    volume_cutoff = params["volume_cutoff"]
     show_progress_bar = params["show_progress_bar"]
+    saving_method = params["saving_method"]
 
     files = os.listdir(data_path)
     paths = [
@@ -89,11 +90,11 @@ def simulate(
     for i in tqdm(
         range(50000), desc="Starting nth iteration of the formation-trading loop", disable = not show_progress_bar
     ):
-        formation = (start + i * jump_delta, start + formation_delta + i * jump_delta)
+        formation = (start_date + i * jump_delta, start_date + formation_delta + i * jump_delta)
         trading = (formation[1], formation[1] + training_delta)
-        if trading[1] > end:
+        if trading[1] > end_date:
             if truncate == True:
-                trading = (trading[0], end)
+                trading = (trading[0], end_date)
             else:
                 break
         if trading[1] < formation[1]:
@@ -118,7 +119,7 @@ def simulate(
         if redo_preprocessed == True:
             preprocessed = preprocess(prefiltered[:, 0], first_n=0, freq=freq)
             if save is not None:
-                preprocessed.to_pickle(os.path.join(save, str(i) + "y" + str(freq)))
+                preprocessed.to_parquet(os.path.join(save, str(i) + "y" + str(freq)))
         else:
             preprocessed_fpath = os.path.join(
                 save,
@@ -126,13 +127,20 @@ def simulate(
                 + "preprocessed"
                 + str(freq)
                 + str(volume_cutoff).replace(".", "_")
-                + ".pkl",
+                + f".{saving_method}",
             )
             if not os.path.isfile(preprocessed_fpath):
                 preprocessed = preprocess(prefiltered[:, 0], first_n=0, freq=freq)
-                preprocessed.to_pickle(preprocessed_fpath)
+
+                if saving_method == 'parquet':
+                    preprocessed.to_parquet(preprocessed_fpath)
+                elif saving_method == 'pkl':
+                    preprocessed.to_pickle(preprocessed_fpath)
             else:
-                preprocessed = pd.read_pickle(preprocessed_fpath)
+                if saving_method == 'parquet':
+                    preprocessed = pd.read_parquet(preprocessed_fpath)
+                elif saving_method == 'pkl':
+                    preprocessed = pd.read_pickle(preprocessed_fpath)
 
         if "coint" == method:
             coint_head = pick_range(preprocessed, formation[0], formation[1])
@@ -150,11 +158,11 @@ def simulate(
 
         if "dist" == method:
             head = pick_range(preprocessed, formation[0], formation[1])
-            distances = distance(head, num=dist_num)
+            distances = distance(head, num=dist_num, show_progress_bar=show_progress_bar)
             short_y = pick_range(preprocessed, formation[0], trading[1])
-            spreads = distance_spread(short_y, distances["viable_pairs"], formation)
+            spreads = distance_spread(short_y, distances["viable_pairs"], formation, show_progress_bar=show_progress_bar)
             spreads.sort_index(inplace=True)
-            
+
         trading_signals = signals(
             spreads,
             timeframe=trading,
@@ -168,8 +176,8 @@ def simulate(
         propagate_weights(trading_signals, formation)
         calculate_profit(trading_signals, cost=txcost)
         if save is not None:
-            trading_signals.to_pickle(
-                os.path.join(save, scenario, str(i) + f"{method}_signal.pkl")
+            trading_signals.to_parquet(
+                os.path.join(save, scenario, str(i) + f"{method}_signal.parquet")
             )
         backtests.append(trading_signals)
 

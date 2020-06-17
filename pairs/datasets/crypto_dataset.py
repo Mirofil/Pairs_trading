@@ -96,7 +96,5 @@ class CryptoDataset:
                 )
                 preprocessed.append(newdf.set_index(multiindex))
         all_time_series = pd.concat(preprocessed)
-        # concat.groupby(level=0)['Price']=concat.groupby(level=0)['Price'].shift(0)-concat.groupby(level=0)['Price'][0]
-        # this step has to be done here even though it thematically fits end of prefilter since its not fully truncated by date and we would have to at least subtract the first row but whatever
-        # concat.groupby(level=0).apply(lambda x: x['Price']=x['logReturns'].cumsum())
+
         return all_time_series

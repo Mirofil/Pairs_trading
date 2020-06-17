@@ -42,7 +42,7 @@ def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False):
 
     return df.loc[integrated]
 
-def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
+def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1, show_progres_bar = True):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
     Takes the data from preprocess and filters out stationary series,
     returning data in the same format. 
@@ -80,11 +80,11 @@ def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
     else:
         pairs = df.index.unique(0)
         integrated = []
-        for pair in tqdm(pairs, desc='Finding integrated time series'):
-            df.loc[pair, "logReturns"] = (
-                np.log(df.loc[pair, "Close"]) - np.log(df.loc[pair, "Close"].shift(1))
-            ).values
+        for pair in tqdm(pairs, desc='Finding integrated time series', disable = not show_progress_bar):
             df.loc[pair, "logClose"] = np.log(df.loc[pair, "Close"].values)
+            df.loc[pair, "logReturns"] = (
+                df.loc[pair, "logClose"] - df.loc[pair, "logClose"].shift(1)
+            ).values
             pvalue = ts.adfuller(
                 df.loc[pair, "logClose"].fillna(method="ffill").values,
                 regression=regression,
@@ -94,12 +94,12 @@ def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1):
         return df.loc[integrated]
 
 
-def cointegration_fast(df, confidence=0.05):
+def cointegration_fast(df, confidence=0.05, show_progress_bar = True):
     pairs = df.index.unique(0)
     cointegrated = []
     df["logClose"] = df["logClose"].fillna(method="ffill")
     df["logClose"].fillna(method="ffill").values
-    for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs'):
+    for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs', disable= not show_progress_bar):
         x = df.loc[pair[0], "logClose"].values
         y = df.loc[pair[1], "logClose"].values
         if coint(x, y)[1] <= confidence:
@@ -110,7 +110,7 @@ def cointegration_fast(df, confidence=0.05):
             cointegrated.append([pair, fit.param])
     return cointegrated
 
-def cointegration(df, confidence=0.05, num_of_processes=1):
+def cointegration(df, confidence=0.05, num_of_processes=1, show_progress_bar = True):
     if num_of_processes > 1:
         pairs = df.index.unique(0)
         cointegrated = []
@@ -144,7 +144,7 @@ def cointegration(df, confidence=0.05, num_of_processes=1):
     else:
         pairs = df.index.unique(0)
         cointegrated = []
-        for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs'):
+        for pair in tqdm(itertools.combinations(pairs, 2), total=len(pairs)*(len(pairs)-1)/2, desc ='Finding cointegrations across pairs', disable= not show_progress_bar):
             x = df.loc[pair[0], "logClose"].fillna(method="ffill").values
             x = x.reshape((x.shape[0], 1))
             y = df.loc[pair[1], "logClose"].fillna(method="ffill").values
@@ -157,7 +157,7 @@ def cointegration(df, confidence=0.05, num_of_processes=1):
     return cointegrated
 
 
-def coint_spread(df, viable_pairs, timeframe, betas=1):
+def coint_spread(df, viable_pairs, timeframe, betas=1, show_progress_bar=True):
     """Picks out the viable pairs of the original df (which has all pairs)
     and adds to it the normPrice Spread among others, as well as initially
     defines Weights and Profit """
@@ -165,7 +165,7 @@ def coint_spread(df, viable_pairs, timeframe, betas=1):
     spreads = []
     if betas == 1:
         betas = [np.array([1, 1]) for i in range(len(viable_pairs))]
-    for pair, coefs in zip(viable_pairs, betas):
+    for pair, coefs in tqdm(zip(viable_pairs, betas), desc='Calculating coint spreads', total=len(viable_pairs), disable = not show_progress_bar):
         # labels will be IOTAADA rather that IOTABTCADABTC,
         # so we remove the last three characters
         first = pair[0][:-3]

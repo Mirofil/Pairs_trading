@@ -1,6 +1,6 @@
 import datetime
 from pairs.config import start_date, end_date, data_path, save, paper1_data_path, paper1_results
-
+from pairs.config import TradingUniverse
 
 def generate_scenario(
     freq="1D",
@@ -9,8 +9,6 @@ def generate_scenario(
     training_delta=[2, 0, 0],
     volume_cutoff=0.7,
     formation_delta=[4, 0, 0],
-    start=start_date,
-    end=end_date,
     jump=[1, 0, 0],
     method="dist",
     dist_num=20,
@@ -19,10 +17,7 @@ def generate_scenario(
     redo_prefiltered=False,
     redo_preprocessed=False,
     truncate=True,
-    name="scenarioX",
-    data_path = paper1_data_path,
-    save=paper1_results,
-    show_progress_bar=False
+    trading_univ: TradingUniverse = TradingUniverse()
 ):
     return {
         "freq": freq,
@@ -32,8 +27,6 @@ def generate_scenario(
         "volume_cutoff": volume_cutoff,
         "training_delta": [2, 0, 0],
         'formation_delta': [4,0,0],
-        'start':start_date,
-        'end':end_date,
         'jump':[1,0,0],
         'method':'dist',
         'dist_num':dist_num,
@@ -42,10 +35,13 @@ def generate_scenario(
         'redo_prefiltered':redo_prefiltered,
         'redo_preprocessed':redo_preprocessed,
         'truncate':True,
-        'name':name,
-        'data_path':data_path,
-        'save':save,
-        'show_progress_bar':show_progress_bar
+        'data_path':trading_univ["data_path"],
+        'save_path_results':trading_univ["save_path_results"],
+        'show_progress_bar':trading_univ["show_progress_bar"],
+        'saving_method':trading_univ["saving_method"],
+        'start_date':trading_univ["start_date"],
+        'end_date':trading_univ["end_date"],
+        'name':trading_univ["name"],
     }
 
 

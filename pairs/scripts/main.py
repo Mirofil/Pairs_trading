@@ -13,6 +13,7 @@ from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   propagate_weights, signals, sliced_norm,
                                   weights_from_signals)
 from pairs.datasets.us_dataset import USDataset
+from pairs.datasets.crypto_dataset import CryptoDataset
 
 univ = TradingUniverse(data_path='hist/nyse/')
 
@@ -21,10 +22,24 @@ us.prefilter()
 us.preprocess()
 preprocessed = us.preprocessed_paths
 
+univ_crypto = TradingUniverse(start_date=[2018,1,1], end_date=[2018,7,1])
+crypto = CryptoDataset(univ_crypto)
+
+
 formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 5, 1]))
 trading = (formation[1], formation[1] + relativedelta(months=2))
 
 root_folder = "paper1"
+
+
+#rerunning is computationally intensive
+x=prefilter(paths, cutoff=0.7)
+np.save('prefiltered0_7', x)
+
+
+#%%#
+y=preprocess(x[:,0], first_n=0, freq='1D')
+y.to_pickle('preprocessed1D0_7.pkl')
 
 
 prefiltered = np.load(os.path.join(root_folder, "NEWprefiltered0_7.npy"))
@@ -35,6 +50,8 @@ prefiltered = np.load(os.path.join(root_folder, "NEWprefiltered0_7.npy"))
 preprocessed = pd.read_pickle(os.path.join(root_folder, "NEWpreprocessed1D0_7.pkl"))
 
 #%%
+simulate()
+
 # #13s per iteration (local)
 simulate(**scenario1, save='testing', data_path = 'paper1/NEWconcatenated_price_data/', redo_prefiltered=False, redo_preprocessed=False)
 # 16s per iteration (local)

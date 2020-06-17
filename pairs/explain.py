@@ -47,7 +47,7 @@ df['training_delta'] = df['training_delta'].apply(lambda x: 30*x[0]+x[1])
 
 
 x = df[params_row]
-x= df[['lag', 'threshold']]
+x= df[['lag', 'threshold', 'dist_num']]
 y = df["Annualized Sharpe"]
 
 train_data = lgb.Dataset(x, label=y)
@@ -76,7 +76,7 @@ shap_values = explainer.shap_values(x)
 shap.force_plot(explainer.expected_value, shap_values[1,:], x.iloc[1,:])
 
 shap.force_plot(explainer.expected_value, shap_values, x)
-shap.dependence_plot("threshold", shap_values, x)
+shap.dependence_plot("dist_num", shap_values, x)
 
 
 # IMPORTANCES OF ALL FEATURES
