@@ -22,6 +22,7 @@ def pick_range(y, start, end):
     past_start = y.index.levels[1] > pd.to_datetime(start)
     before_end = y.index.levels[1] <= pd.to_datetime(end)
     mask = (past_start) & (before_end)
+
     return y.groupby(level=0).apply(lambda x: x.loc[mask]).droplevel(level=0)
 
 def signals_numeric(olddf, copy=True):

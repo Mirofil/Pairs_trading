@@ -60,7 +60,12 @@ def prefilter(paths, start=start_date, end=end_date, cutoff=0.7):
     # sort by Volume and pick upper percentile
     admissible.sort(key=lambda x: x[1])
     admissible = admissible[int(np.round(len(admissible) * cutoff)) :]
-    return np.array(admissible)
+
+    #TODO NOTE!!! BEFORE THIS WOULD RETURN np.array(admissible), so that might be needed for backwards compatibility!
+    #I only go sort of halfway with the refactorization to make it easy to change back if needed..
+    result = pd.DataFrame(np.array(admissible), columns = ["0", "1"])
+    result.columns = [str(col) for col in result.columns]
+    return result
 
 
 def resample(df, freq: str ="1D", start=start_date, fill: bool =True):
@@ -70,16 +75,20 @@ def resample(df, freq: str ="1D", start=start_date, fill: bool =True):
     (since they got listed at various dates)"""
     df.index = pd.to_datetime(df.Date)
     # Close prices get resampled with last values, whereas Volume gets summed
-    close = df["Close"].resample(freq).last()
-    df["Volume"] = df["Volume"] * df["Close"]
-    newdf = df.resample(freq).agg({"Volume": np.sum})
+    if freq is not None:
+        df["Close"] = df["Close"].resample(freq).last()
+        df["Volume"] = df["Volume"] * df["Close"]
+        newdf = df.resample(freq).agg({"Volume": np.sum})
+    else:
+        df["Volume"] = df["Volume"] * df["Close"]
+        newdf = df
     # log returns and normalization
-    newdf["Close"] = close
+    newdf["Close"] = df["Close"]
     if fill == True:
         newdf["Close"] = newdf["Close"].fillna(method="ffill")
     newdf["logClose"] = np.log(newdf["Close"])
     newdf["logReturns"] = (
-        np.log(newdf["Close"]) - np.log(newdf["Close"].shift(1))
+        newdf["logClose"] - newdf["logClose"].shift(1)
     ).values
     newdf["Price"] = newdf["logReturns"].cumsum()
     return newdf[newdf.index > pd.to_datetime(start)]
@@ -108,7 +117,6 @@ def preprocess(paths, freq:str ="1D", end=end_date, first_n: int=0, start=start_
                 names=["Pair", "Time"],
             )
             preprocessed.append(newdf.set_index(multiindex))
-    concat = pd.concat(preprocessed)
     # concat.groupby(level=0)['Price']=concat.groupby(level=0)['Price'].shift(0)-concat.groupby(level=0)['Price'][0]
     # this step has to be done here even though it thematically fits end of prefilter since its not fully truncated by date and we would have to at least subtract the first row but whatever
     # concat.groupby(level=0).apply(lambda x: x['Price']=x['logReturns'].cumsum())

@@ -7,8 +7,8 @@ class TradingUniverse:
         self,
         start_date=[2018, 1, 1],
         end_date=[2019, 9, 1],
-        volume_cutoff=0.7,
-        root_folder="NEW",
+        volume_cutoff=[0.7,1],
+        root_folder=None,
         save_path_graphs=None,
         save_path_tables=None,
         save_path_results=None,
@@ -22,22 +22,25 @@ class TradingUniverse:
         self.end_date = datetime.date(*end_date)
         self.volume_cutoff = volume_cutoff
         self.root_folder = root_folder
-        if save_path_graphs is None:
-            save_path_graphs = root_folder + "graphs" + os.sep
+        if save_path_graphs is None and root_folder is not None:
+            self.save_path_graphs = os.path.join(root_folder, "graphs")
         else:
-            self.save_path_graphs = save_path_graphs
-        if save_path_tables is None:
-            save_path_tables = root_folder + "tables" + os.sep
+            self.save_path_graphs = None
+
+        if save_path_tables is None and root_folder is not None:
+            self.save_path_tables = os.path.join(root_folder, "tables")
         else:
-            self.save_path_tables = save_path_tables
-        if save_path_results is None:
-            self.save_path_results = root_folder + "results" + os.sep
+            self.save_path_tables = None
+
+        if save_path_results is None and root_folder is not None:
+            self.save_path_results = os.path.join(root_folder, "results")
         else:
-            self.save_path_results = save_path_results
-        if data_path is not None:
+            self.save_path_results = None
+
+        if data_path is None and root_folder is not None:
+            self.data_path = os.path.join(root_folder, "concatenated_price_data")
+        else:
             self.data_path = data_path
-        else:
-            self.data_path = root_folder + "concatenated_price_data" + os.sep
 
         self.freq = freq
 

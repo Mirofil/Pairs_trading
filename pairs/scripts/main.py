@@ -15,15 +15,26 @@ from pairs.pairs_trading_engine import (calculate_profit, pick_range,
 from pairs.datasets.us_dataset import USDataset
 from pairs.datasets.crypto_dataset import CryptoDataset
 
-univ = TradingUniverse(data_path='hist/nyse/')
+univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
 
 us = USDataset(univ)
 us.prefilter()
 us.preprocess()
 preprocessed = us.preprocessed_paths
 
+paper1_univ = TradingUniverse(
+    start_date=[2018, 1, 1],
+    end_date=[2019, 9, 1],
+    volume_cutoff=0.7,
+    root_folder="paper1",
+    data_path="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWconcatenated_price_data",
+    save_path_results = "/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWresults",
+    save_path_graphs="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWgraphs",
+    save_path_tables="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWtables",
+)
+
 univ_crypto = TradingUniverse(start_date=[2018,1,1], end_date=[2018,7,1])
-crypto = CryptoDataset(univ_crypto)
+crypto = CryptoDataset(paper1_univ)
 
 
 formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 5, 1]))
@@ -32,14 +43,14 @@ trading = (formation[1], formation[1] + relativedelta(months=2))
 root_folder = "paper1"
 
 
-#rerunning is computationally intensive
-x=prefilter(paths, cutoff=0.7)
-np.save('prefiltered0_7', x)
+# #rerunning is computationally intensive
+# x=prefilter(paths, cutoff=0.7)
+# np.save('prefiltered0_7', x)
 
 
-#%%#
-y=preprocess(x[:,0], first_n=0, freq='1D')
-y.to_pickle('preprocessed1D0_7.pkl')
+# #%%#
+# y=preprocess(x[:,0], first_n=0, freq='1D')
+# y.to_pickle('preprocessed1D0_7.pkl')
 
 
 prefiltered = np.load(os.path.join(root_folder, "NEWprefiltered0_7.npy"))

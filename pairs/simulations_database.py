@@ -1,13 +1,13 @@
 import datetime
 from pairs.config import start_date, end_date, data_path, save, paper1_data_path, paper1_results
 from pairs.config import TradingUniverse
+from pairs.datasets.us_dataset import USDataset
 
 def generate_scenario(
     freq="1D",
     lag=1,
     txcost=0.003,
     training_delta=[2, 0, 0],
-    volume_cutoff=0.7,
     formation_delta=[4, 0, 0],
     jump=[1, 0, 0],
     method="dist",
@@ -17,14 +17,14 @@ def generate_scenario(
     redo_prefiltered=False,
     redo_preprocessed=False,
     truncate=True,
-    trading_univ: TradingUniverse = TradingUniverse()
+    trading_univ: TradingUniverse = TradingUniverse(),
+    dataset = None
 ):
     return {
         "freq": freq,
         "lag": lag,
         "txcost": txcost,
         "training_delta": training_delta,
-        "volume_cutoff": volume_cutoff,
         "training_delta": [2, 0, 0],
         'formation_delta': [4,0,0],
         'jump':[1,0,0],
@@ -42,6 +42,9 @@ def generate_scenario(
         'start_date':trading_univ["start_date"],
         'end_date':trading_univ["end_date"],
         'name':trading_univ["name"],
+        "volume_cutoff": trading_univ["volume_cutoff"],
+        "dataset":dataset,
+        "trading_univ":trading_univ
     }
 
 

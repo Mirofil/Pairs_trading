@@ -217,7 +217,7 @@ def descriptive_frame(olddf, show_progress_bar=False):
     # rebuilds the MultiIndex? Seems to go from BACKTEST_INDEX, PAIR, TIME to BACKTEST_INDEX, PAIR with the same columns
     # (or rather, with the diag on colums at the end which are quite close to the originals)
     temp = [[], []]
-    for i in range(len(olddf.index.unique(level=0))):
+    for i in (olddf.index.unique(level=0)):
         temp[0].append([i for x in range(len(olddf.loc[i].index.unique(level=0)))])
         temp[1].append([item for item in olddf.loc[i].index.unique(level=0).array])
     temp[0] = [item for sublist in temp[0] for item in sublist]
@@ -228,8 +228,8 @@ def descriptive_frame(olddf, show_progress_bar=False):
     for backtest_index, _ in tqdm(
         df.groupby(level=0), desc="Constructing descriptive frames over backtests", disable= not show_progress_bar
     ):
-
-        test_pair = olddf.loc[backtest_index].index.unique(level=0)[0]
+        backtest_index = int(backtest_index)
+        # test_pair = olddf.loc[backtest_index].index.unique(level=0)[0]
         stats = descriptive_stats(
             olddf.loc[backtest_index],
             trading_timeframe=infer_periods(olddf.loc[backtest_index])["trading"],

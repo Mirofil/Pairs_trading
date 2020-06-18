@@ -48,10 +48,8 @@ if __name__ == "__main__":
     fit.show()
     fit.param
 
-    %%timeit
     test = urt.ADF_d(y, lags=None, trend=b'ct', method=b'AIC')
 
-    %%timeit
     ts.adfuller(
                     y,
                     regression='ct',

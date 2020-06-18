@@ -16,3 +16,5 @@ statsmodels
 tqdm
 wheel
 yfinance
+mlflow
+mlflowhelper
