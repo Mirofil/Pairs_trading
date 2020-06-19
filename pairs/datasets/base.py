@@ -16,6 +16,26 @@ from pairs.config import (
 )
 from pairs.helpers import name_from_path, resample
 from abc import ABC
+import itertools
+import operator
+
+def most_common(L):
+  # get an iterable of (item, iterable) pairs
+  SL = sorted((x, i) for i, x in enumerate(L))
+  # print 'SL:', SL
+  groups = itertools.groupby(SL, key=operator.itemgetter(0))
+  # auxiliary function to get "quality" for an item
+  def _auxfun(g):
+    item, iterable = g
+    count = 0
+    min_index = len(L)
+    for _, where in iterable:
+      count += 1
+      min_index = min(min_index, where)
+    # print 'item %r, count %r, minind %r' % (item, count, min_index)
+    return count, -min_index
+  # pick the highest-count/earliest item
+  return max(groups, key=_auxfun)[0]
 
 class Dataset(ABC):
     def __init__(self):
@@ -79,6 +99,7 @@ class Dataset(ABC):
 
         idx = pd.IndexSlice
         admissible = []
+        lens_of_admissible = []
         for i in tqdm(
             range(len(paths)),
             desc="Prefiltering pairs (based on volume and start_date/end_date of trading)",
@@ -88,6 +109,8 @@ class Dataset(ABC):
             df = pd.read_csv(paths[i])
             if drop_any_na is True:
                 if len(df.dropna()) < len(df):
+                    continue
+                if any(df["Volume"]==0):
                     continue
             df.rename({"Opened": "Date"}, axis="columns", inplace=True, errors='ignore')
 
@@ -107,6 +130,16 @@ class Dataset(ABC):
                         ).sum(),
                     ]
                 )
+                lens_of_admissible.append(len(df.loc[idx[str(start_date) : str(end_date)]]))
+        
+        most_common_len = most_common(lens_of_admissible)
+        indexes_to_remove=[]
+        for idx,ts in enumerate(admissible):
+            if lens_of_admissible[idx] != most_common_len:
+                indexes_to_remove.append(idx)
+        for index in indexes_to_remove:
+            del admissible[index]
+
         # sort by Volume and pick upper percentile
         admissible.sort(key=lambda x: x[1])
         admissible = admissible[

@@ -33,7 +33,7 @@ def pick_range(df, start, end):
     before_end = df.index.levels[1] <= pd.to_datetime(end)
     mask = (past_start) & (before_end)
 
-    result = df.groupby(level=0, group_keys=False).apply(lambda x: x.loc[mask])
+    result = df.groupby(level=0).apply(lambda x: x.loc[mask])
     if result.index.names[0] == result.index.names[1]:
         result = result.droplevel(level=0)
 

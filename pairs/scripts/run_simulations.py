@@ -28,7 +28,7 @@ univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_
 config=generate_scenario(
         freq="1D",
         lag=1,
-        txcost=0.003,
+        txcost=[0,0.003],
         training_delta=[2, 0, 0],
         formation_delta=[4, 0, 0],
         jump=[1, 0, 0],
@@ -44,13 +44,10 @@ config=generate_scenario(
     )
 simulate(config)
 
-#%%
-simulate(config)
 
 
 if __name__ == "__main__":
-    ray.init(num_cpus=3, include_webui=True, log_to_driver=False)
-    mlflow.set_experiment("pairs_simulation")
+    ray.init(num_cpus=3, include_webui=True, log_to_driver=True)
 
     analysis = tune.run(
         simulate,
@@ -70,7 +67,7 @@ if __name__ == "__main__":
                 show_progress_bar=False,
                 saving_method="pkl",
             )
-    univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
+    univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/nyse/')
 
     analysis = tune.run(
         simulate,
@@ -78,13 +75,13 @@ if __name__ == "__main__":
         config=generate_scenario(
             freq="1D",
             lag=1,
-            txcost=0.003,
+            txcost=[0.003],
             training_delta=[2, 0, 0],
             formation_delta=[4, 0, 0],
             jump=[1, 0, 0],
             method="dist",
-            dist_num=tune.grid_search([5,10,20,40,70,100]),
-            threshold=tune.grid_search([1,2,3]),
+            dist_num=tune.grid_search([5]),
+            threshold=[1],
             stoploss=100,
             redo_prefiltered=True,
             redo_preprocessed=True,

@@ -13,25 +13,42 @@ from ray import tune
 from tqdm import tqdm
 
 from pairs.analysis import (
-    aggregate, compute_cols_from_freq, compute_period_length,
-    descriptive_frame, descriptive_stats, summarize)
+    aggregate,
+    compute_cols_from_freq,
+    compute_period_length,
+    descriptive_frame,
+    descriptive_stats,
+    summarize,
+)
 from pairs.config import standard_result_metrics_from_desc_stats
 from pairs.cointmethod import coint_spread, cointegration, find_integrated
 
 from pairs.distancemethod import distance, distance_spread
 from pairs.helpers import data_path
-from pairs.pairs_trading_engine import (calculate_profit, pick_range,
-                                  propagate_weights, signals, sliced_norm,
-                                  weights_from_signals)
+from pairs.pairs_trading_engine import (
+    calculate_profit,
+    pick_range,
+    propagate_weights,
+    signals,
+    sliced_norm,
+    weights_from_signals,
+)
+from pairs.helpers import remake_into_lists
 import mlflow
 import mlflowhelper
-
+import itertools
 import uuid
+
 num_of_processes = 1
 
+# run_ids = []
+#     ...:     for _ in step2_arg_product:
+#     ...:         run = mlflowhelper.start_run(experiment_id=experiment_id)
+#     ...:         run_ids.append(run.active_run.info.run_id)
+#     ...:         mlflow.end_run()
 
 def simulate(
-    params
+    params,
     # data_path: str = data_path,
     # save: str = save,
     # num_of_processes: int = num_of_processes,
@@ -54,7 +71,6 @@ def simulate(
     threshold = params["threshold"]
     stoploss = params["stoploss"]
     scenario = params["name"]
-    data_path = params["data_path"]
     save_path_results = params["save_path_results"]
 
     redo_prefiltered = params["redo_prefiltered"]
@@ -66,19 +82,24 @@ def simulate(
     dataset = params["dataset"]
     trading_univ = params["trading_univ"]
 
-    UNIQUE_ID = str(uuid.uuid4())
+    lag, stoploss, threshold, txcost = remake_into_lists(lag, stoploss, threshold, txcost)
 
+
+    UNIQUE_ID = str(uuid.uuid4())
 
     formation_delta = relativedelta(
         months=formation_delta[0], days=formation_delta[1], hours=formation_delta[2]
     )
     training_delta = relativedelta(
-        months=training_delta_raw[0], days=training_delta_raw[1], hours=training_delta_raw[2]
+        months=training_delta_raw[0],
+        days=training_delta_raw[1],
+        hours=training_delta_raw[2],
     )
     jump_delta = relativedelta(months=jump[0], days=jump[1], hours=jump[2])
     trading_period_days = compute_period_length(training_delta_raw)
     multiindex_from_product_cols = compute_cols_from_freq([freq], [method])
 
+    step2_arg_product = list(itertools.product(lag,threshold, stoploss, txcost))
 
     print("Starting " + scenario)
     print("\n")
@@ -87,146 +108,225 @@ def simulate(
     # with open(os.path.join(save, scenario, "parameters" + ".txt"), "w") as tf:
     #     print(params, file=tf)
 
-    backtests = []
+    backtests_store = [[] for prod in step2_arg_product]
 
-    mlflow.set_experiment("Simulation")
-    mlflow.set_tracking_uri("file:/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/mlruns/")
-    with mlflowhelper.start_run():
-        for i in tqdm(
-            range(50000), desc="Starting nth iteration of the formation-trading loop", disable = not show_progress_bar
-        ):
-            artifacts = {}
-            with mlflowhelper.start_run(nested=True):
-                formation = (start_date + i * jump_delta, start_date + formation_delta + i * jump_delta)
-                trading = (formation[1], formation[1] + training_delta)
-                if trading[1] > end_date:
-                    if truncate == True:
-                        trading = (trading[0], end_date)
-                    else:
-                        break
-                if trading[1] < formation[1]:
-                    break
+    mlflow.set_tracking_uri(
+        "file:/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/mlruns/"
+    )
+    experiment_id = mlflowhelper.set_experiment(scenario)
 
-                if redo_prefiltered == True:
-                    prefiltered = dataset.prefilter(start_date=formation[0], end_date=formation[1])
-                    if save_path_results is not None:
-                        # np.save(os.path.join(save, str(i) + "x" + str(volume_cutoff), prefiltered))
-                        prefiltered.to_parquet(os.path.join(save_path_results, str(i) + "x" + str(volume_cutoff)+".parquet"))
-                else:
-                    prefiltered_fpath = os.path.join(
+
+    run_ids = []
+
+    for _ in step2_arg_product:
+        run = mlflowhelper.start_run(experiment_id=experiment_id)
+        run_ids.append(run.active_run.info.run_id)
+        mlflow.end_run()
+
+
+    for i in tqdm(
+        range(50000),
+        desc="Starting nth iteration of the formation-trading loop",
+        disable=not show_progress_bar,
+    ):
+        artifacts = {}
+
+        formation = (
+            start_date + i * jump_delta,
+            start_date + formation_delta + i * jump_delta,
+        )
+        trading = (formation[1], formation[1] + training_delta)
+        if trading[1] > end_date:
+            if truncate == True:
+                trading = (trading[0], end_date)
+            else:
+                break
+        if trading[1] < formation[1]:
+            break
+
+        if redo_prefiltered == True:
+            prefiltered = dataset.prefilter(
+                start_date=formation[0], end_date=formation[1]
+            )
+            if save_path_results is not None:
+                # np.save(os.path.join(save, str(i) + "x" + str(volume_cutoff), prefiltered))
+                prefiltered.to_parquet(
+                    os.path.join(
                         save_path_results,
-                        "prefiltered" + str(volume_cutoff).replace(".", "_") + ".parquet",
+                        str(i) + "x" + str(volume_cutoff) + ".parquet",
                     )
-                    if not os.path.isfile(prefiltered_fpath):
-                        prefiltered = dataset.prefilter(start_date=formation[0], end_date=formation[1])
-                        # np.save(prefiltered_fpath, prefiltered)
-                        prefiltered.to_parquet(prefiltered_fpath)
-                    else:
-                        # prefiltered = np.load(prefiltered_fpath)
-                        prefiltered = pd.read_parquet(prefiltered_fpath)
-
-                if redo_preprocessed == True:
-                    preprocessed = dataset.preprocess(start_date=formation[0], end_date=trading[1])
-                    if save_path_results is not None:
-                        preprocessed.to_parquet(os.path.join(save_path_results, str(i) + "y" + str(freq)))
-                else:
-                    preprocessed_fpath = os.path.join(
-                        save_path_results,
-                        "preprocessed"
-                        + str(freq)
-                        + str(volume_cutoff).replace(".", "_")
-                        + f".{saving_method}",
-                    )
-                    if not os.path.isfile(preprocessed_fpath):
-                        preprocessed = dataset.prefilter(start_date=formation[0], end_date=trading[1])
-
-                        if saving_method == 'parquet':
-                            preprocessed.to_parquet(preprocessed_fpath)
-                        elif saving_method == 'pkl':
-                            preprocessed.to_pickle(preprocessed_fpath)
-                    else:
-                        if saving_method == 'parquet':
-                            preprocessed = pd.read_parquet(preprocessed_fpath)
-                        elif saving_method == 'pkl':
-                            preprocessed = pd.read_pickle(preprocessed_fpath)
-
-                if "coint" == method:
-                    coint_head = pick_range(preprocessed, formation[0], formation[1])
-                    k = cointegration(
-                        find_integrated(coint_head), num_of_processes=1
-                    )
-                    short_y = pick_range(preprocessed, formation[0], trading[1])
-                    spreads = coint_spread(
-                        short_y,
-                        [item[0] for item in k],
-                        timeframe=formation,
-                        betas=[item[1] for item in k],
-                    )
-                    spreads.sort_index(inplace=True)
-
-                if "dist" == method:
-                    head = pick_range(preprocessed, formation[0], formation[1])
-                    distances = distance(head, num=dist_num, show_progress_bar=show_progress_bar)
-                    short_y = pick_range(preprocessed, formation[0], trading[1])
-                    spreads = distance_spread(short_y, distances["viable_pairs"], formation, show_progress_bar=show_progress_bar)
-                    spreads.sort_index(inplace=True)
-                trading_signals = signals(
-                    spreads,
-                    start_date=start_date,
-                    end_date=end_date,
-                    trading_timeframe=trading,
-                    formation=formation,
-                    lag=lag,
-                    threshold=threshold,
-                    stoploss=stoploss,
-                    num_of_processes=1,
                 )
-                weights_from_signals(trading_signals, cost=txcost)
-                propagate_weights(trading_signals, formation)
-                calculate_profit(trading_signals, cost=txcost)
+        else:
+            prefiltered_fpath = os.path.join(
+                save_path_results,
+                "prefiltered"
+                + str(volume_cutoff).replace(".", "_")
+                + ".parquet",
+            )
+            if not os.path.isfile(prefiltered_fpath):
+                prefiltered = dataset.prefilter(
+                    start_date=formation[0], end_date=formation[1]
+                )
+                # np.save(prefiltered_fpath, prefiltered)
+                prefiltered.to_parquet(prefiltered_fpath)
+            else:
+                # prefiltered = np.load(prefiltered_fpath)
+                prefiltered = pd.read_parquet(prefiltered_fpath)
 
-                if save_path_results is not None:
-                    trading_signals.to_parquet(
-                        os.path.join(save_path_results, scenario, str(i) + f"{method}_signal.parquet")
+        if redo_preprocessed == True:
+            preprocessed = dataset.preprocess(
+                start_date=formation[0], end_date=trading[1]
+            )
+            if save_path_results is not None:
+                preprocessed.to_parquet(
+                    os.path.join(save_path_results, str(i) + "y" + str(freq))
+                )
+        else:
+            preprocessed_fpath = os.path.join(
+                save_path_results,
+                "preprocessed"
+                + str(freq)
+                + str(volume_cutoff).replace(".", "_")
+                + f".{saving_method}",
+            )
+            if not os.path.isfile(preprocessed_fpath):
+                preprocessed = dataset.prefilter(
+                    start_date=formation[0], end_date=trading[1]
+                )
+
+                if saving_method == "parquet":
+                    preprocessed.to_parquet(preprocessed_fpath)
+                elif saving_method == "pkl":
+                    preprocessed.to_pickle(preprocessed_fpath)
+            else:
+                if saving_method == "parquet":
+                    preprocessed = pd.read_parquet(preprocessed_fpath)
+                elif saving_method == "pkl":
+                    preprocessed = pd.read_pickle(preprocessed_fpath)
+
+        if "coint" == method:
+            coint_head = pick_range(preprocessed, formation[0], formation[1])
+            k = cointegration(find_integrated(coint_head), num_of_processes=1)
+            short_y = pick_range(preprocessed, formation[0], trading[1])
+            spreads = coint_spread(
+                short_y,
+                [item[0] for item in k],
+                timeframe=formation,
+                betas=[item[1] for item in k],
+            )
+            spreads.sort_index(inplace=True)
+
+        if "dist" == method:
+            head = pick_range(preprocessed, formation[0], formation[1])
+            distances = distance(
+                head, num=dist_num, show_progress_bar=show_progress_bar
+            )
+            short_y = pick_range(preprocessed, formation[0], trading[1])
+            spreads = distance_spread(
+                short_y,
+                distances["viable_pairs"],
+                formation,
+                show_progress_bar=show_progress_bar,
+            )
+            spreads.sort_index(inplace=True)
+
+        for arg_tuple,run_id, backtests in zip(itertools.product(lag,threshold, stoploss, txcost), run_ids, backtests_store):
+            lag_,threshold_,stoploss_, txcost_ = arg_tuple
+            with mlflowhelper.start_run(run_id=run_id, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
+                with mlflowhelper.start_run(nested=True, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
+
+                #The best way would be to have a regular pipeline DAG here and somehow do plate-like notation for redistribution of parameters.
+                #since this part is independent of the previous
+                    trading_signals = signals(
+                        spreads,
+                        start_date=start_date,
+                        end_date=end_date,
+                        trading_timeframe=trading,
+                        formation=formation,
+                        lag=lag_,
+                        threshold=threshold_,
+                        stoploss=stoploss_,
+                        num_of_processes=1,
                     )
+                    weights_from_signals(trading_signals, cost=txcost_)
+                    propagate_weights(trading_signals, formation)
+                    calculate_profit(trading_signals, cost=txcost_)
 
-                backtests.append(trading_signals)
+                    if save_path_results is not None:
+                        trading_signals.to_parquet(
+                            os.path.join(
+                                save_path_results,
+                                scenario,
+                                str(i) + f"{method}_signal.parquet",
+                            )
+                        )
 
-                artifacts["trading_signals"]=trading_signals
-                artifacts["preprocessed"]=preprocessed
-                artifacts["prefiltered"]= prefiltered
+                    backtests.append(trading_signals)
 
+                    artifacts["trading_signals"] = trading_signals
+                    artifacts["preprocessed"] = preprocessed
+                    artifacts["prefiltered"] = prefiltered
 
-                aggregated = method_independent_part(signals=[trading_signals], keys=[len(backtests)-1], trading_period_days=trading_period_days, multiindex_from_product_cols=multiindex_from_product_cols)
-                #NOTE there should be only one column - something like Daily/Dist
-                for col in aggregated.columns:
-                    mlflow.log_metrics(aggregated[col].to_dict())
-                mlflow.log_params(params)
-                mlflow.log_param("formation", str(formation))
-                mlflow.log_param("trading", str(trading))
-                mlflow.log_param("UNIQUE_ID", UNIQUE_ID+f"_{i}")
+                    aggregated = method_independent_part(
+                        signals=[trading_signals],
+                        keys=[len(backtests) - 1],
+                        trading_period_days=trading_period_days,
+                        multiindex_from_product_cols=multiindex_from_product_cols,
+                    )
+                    # NOTE there should be only one column - something like Daily/Dist
+                    for col in aggregated.columns:
+                        mlflow.log_metrics(aggregated[col].to_dict())
+                    mlflow.log_params(params)
+                    mlflow.log_param("formation", str(formation))
+                    mlflow.log_param("trading", str(trading))
+                    mlflow.log_param("UNIQUE_ID", UNIQUE_ID + f"_{i}")
 
-                for artifact_name, artifact_df in artifacts.items():
+                    # for artifact_name, artifact_df in artifacts.items():
 
-                    with mlflowhelper.managed_artifact(f"{artifact_name}.parquet") as artifact:
+                    #     with mlflowhelper.managed_artifact(
+                    #         f"{artifact_name}.parquet"
+                    #     ) as artifact:
+
+                    #         artifact_df.to_parquet(artifact.get_path())
+
+                
+                    for artifact_name, artifact_df in artifacts.items():
+                        artifact_df.to_parquet(f"{artifact_name}.parquet")
+                        mlflow.log_artifact(f"{artifact_name}.parquet")
+                        os.remove(f"{artifact_name}.parquet")
+
+        if trading[1] == end_date:
+            break
+
+    for backtests, run_id in zip(backtests_store, run_ids):
+        with mlflowhelper.start_run(run_id=run_id, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
+            aggregated = method_independent_part(
+                signals=backtests,
+                keys=range(len(backtests)),
+                trading_period_days=trading_period_days,
+                multiindex_from_product_cols=multiindex_from_product_cols,
+            )
+            # NOTE there should be only one column - something like Daily/Dist
+            for col in aggregated.columns:
+                # ray.tune.track.log(name=col, **aggregated[col].to_dict())
+                mlflow.log_metrics(aggregated[col].to_dict())
+            mlflow.log_params(params)
+            mlflow.log_param("UNIQUE_ID", UNIQUE_ID + "_MASTER")
             
-                        artifact_df.to_parquet(artifact.get_path())
+    #NOTE this can be used later to process the resutls dataframe from MLflow
 
-                if trading[1] == end_date:
-                    break
+    # x=mlflow.search_runs([experiment_id])
+    # x = x.loc[x["tags.mlflow.parentRunId"].isin([run_ids])]
+    # for parent_run_id, group in x.groupby(by='tags.mlflow.parentRunId'):
+    #     with mlflow.start_run(run_id=parent_run_id):
 
-        aggregated = method_independent_part(signals=backtests, keys=range(len(backtests)), trading_period_days=trading_period_days, multiindex_from_product_cols=multiindex_from_product_cols)
-        #NOTE there should be only one column - something like Daily/Dist
-        for col in aggregated.columns:
-            ray.tune.track.log(name=col, **aggregated[col].to_dict())
-            mlflow.log_metrics(aggregated[col].to_dict())
-        mlflow.log_params(params)
-        mlflow.log_param("UNIQUE_ID", UNIQUE_ID + "_MASTER")
 
-def method_independent_part(signals:List[pd.DataFrame], keys, trading_period_days, multiindex_from_product_cols):
+def method_independent_part(
+    signals: List[pd.DataFrame], keys, trading_period_days, multiindex_from_product_cols
+):
     descriptive_frames = descriptive_frame(
         pd.concat(signals, keys=keys), show_progress_bar=False
-        )
+    )
     aggregated = aggregate(
         [descriptive_frames],
         columns_to_pick=standard_result_metrics_from_desc_stats,
@@ -235,7 +335,9 @@ def method_independent_part(signals:List[pd.DataFrame], keys, trading_period_day
         returns_nonzero=True,
         trades_nonzero=True,
     )
-    serializable_columns = ['/'.join(x) for x in aggregated.columns.to_flat_index().values]
+    serializable_columns = [
+        "/".join(x) for x in aggregated.columns.to_flat_index().values
+    ]
     aggregated.columns = serializable_columns
     return aggregated
 

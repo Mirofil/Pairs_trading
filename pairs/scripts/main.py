@@ -17,11 +17,17 @@ from pairs.datasets.us_dataset import USDataset
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.analysis import descriptive_stats
 
-univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
+univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/nyse/')
 
+
+
+formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 7, 1]))
+trading = (formation[1], formation[1] + relativedelta(months=3))
+end_date= datetime.date(*[2019, 9, 1])
+start_date = datetime.date(*[2018, 1, 1])
 us = USDataset(univ)
-us.prefilter()
-us.preprocess()
+us.prefilter(start_date=formation[0], end_date=formation[1],show_progress_bar=True)
+us.preprocess(start_date=formation[0], end_date=trading[1], show_progress_bar=True)
 preprocessed = us.preprocessed_paths
 
 paper1_univ = TradingUniverse(
@@ -38,11 +44,6 @@ paper1_univ = TradingUniverse(
 univ_crypto = TradingUniverse(start_date=[2018,1,1], end_date=[2018,7,1])
 crypto = CryptoDataset(paper1_univ)
 
-
-formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 7, 1]))
-trading = (formation[1], formation[1] + relativedelta(months=3))
-end_date= datetime.date(*[2019, 9, 1])
-start_date = datetime.date(*[2018, 1, 1])
 
 
 
@@ -190,7 +191,7 @@ print("Profit calculation was done in: " + str(end - start))
 # we take timeframe corresponding to Formation period when finding the lowest SSDs
 start = datetime.datetime.now()
 head = pick_range(preprocessed, formation[0], formation[1])
-distances = distance(head, num=20, method='oldschool')
+distances = distance(head, num=20, method='modern')
 end = datetime.datetime.now()
 print("Distances were found in: " + str(end - start))
 #%%
