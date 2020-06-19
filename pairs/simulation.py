@@ -6,6 +6,7 @@ from typing import *
 import numpy as np
 import pandas as pd
 import ray
+import ray.tune.track
 from dateutil.relativedelta import relativedelta
 from pandas.io.json._normalize import nested_to_record
 from ray import tune
@@ -14,11 +15,11 @@ from tqdm import tqdm
 from pairs.analysis import (
     aggregate, compute_cols_from_freq, compute_period_length,
     descriptive_frame, descriptive_stats, summarize)
-
+from pairs.config import standard_result_metrics_from_desc_stats
 from pairs.cointmethod import coint_spread, cointegration, find_integrated
 
 from pairs.distancemethod import distance, distance_spread
-from pairs.helpers import data_path, prefilter, preprocess
+from pairs.helpers import data_path
 from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   propagate_weights, signals, sliced_norm,
                                   weights_from_signals)
@@ -117,7 +118,7 @@ def simulate(
                         "prefiltered" + str(volume_cutoff).replace(".", "_") + ".parquet",
                     )
                     if not os.path.isfile(prefiltered_fpath):
-                        prefiltered = dataset.prefilter()
+                        prefiltered = dataset.prefilter(start_date=formation[0], end_date=formation[1])
                         # np.save(prefiltered_fpath, prefiltered)
                         prefiltered.to_parquet(prefiltered_fpath)
                     else:
@@ -125,7 +126,7 @@ def simulate(
                         prefiltered = pd.read_parquet(prefiltered_fpath)
 
                 if redo_preprocessed == True:
-                    preprocessed = dataset.preprocess(start_date=formation[0], end_date=formation[1])
+                    preprocessed = dataset.preprocess(start_date=formation[0], end_date=trading[1])
                     if save_path_results is not None:
                         preprocessed.to_parquet(os.path.join(save_path_results, str(i) + "y" + str(freq)))
                 else:
@@ -137,7 +138,7 @@ def simulate(
                         + f".{saving_method}",
                     )
                     if not os.path.isfile(preprocessed_fpath):
-                        preprocessed = dataset.prefilter()
+                        preprocessed = dataset.prefilter(start_date=formation[0], end_date=trading[1])
 
                         if saving_method == 'parquet':
                             preprocessed.to_parquet(preprocessed_fpath)
@@ -169,10 +170,11 @@ def simulate(
                     short_y = pick_range(preprocessed, formation[0], trading[1])
                     spreads = distance_spread(short_y, distances["viable_pairs"], formation, show_progress_bar=show_progress_bar)
                     spreads.sort_index(inplace=True)
-
                 trading_signals = signals(
                     spreads,
-                    timeframe=trading,
+                    start_date=start_date,
+                    end_date=end_date,
+                    trading_timeframe=trading,
                     formation=formation,
                     lag=lag,
                     threshold=threshold,
@@ -182,16 +184,17 @@ def simulate(
                 weights_from_signals(trading_signals, cost=txcost)
                 propagate_weights(trading_signals, formation)
                 calculate_profit(trading_signals, cost=txcost)
-                if ssave_path_resultsave is not None:
+
+                if save_path_results is not None:
                     trading_signals.to_parquet(
-                        os.path.join(ssave_path_resultsave, scenario, str(i) + f"{method}_signal.parquet")
+                        os.path.join(save_path_results, scenario, str(i) + f"{method}_signal.parquet")
                     )
+
                 backtests.append(trading_signals)
 
                 artifacts["trading_signals"]=trading_signals
                 artifacts["preprocessed"]=preprocessed
                 artifacts["prefiltered"]= prefiltered
-
 
 
                 aggregated = method_independent_part(signals=[trading_signals], keys=[len(backtests)-1], trading_period_days=trading_period_days, multiindex_from_product_cols=multiindex_from_product_cols)
@@ -212,25 +215,10 @@ def simulate(
                 if trading[1] == end_date:
                     break
 
-        # descriptive_frames = descriptive_frame(
-        #     pd.concat(backtests, keys=range(len(backtests))), show_progress_bar=show_progress_bar
-        # )
-        # trading_period_days = compute_period_length(training_delta_raw)
-        # multiindex_from_product_cols = compute_cols_from_freq([freq], [method])
-        # aggregated = aggregate(
-        #     [descriptive_frames],
-        #     columns_to_pick=standard_result_metrics_from_desc_stats,
-        #     trading_period_days=[trading_period_days],
-        #     multiindex_from_product_cols=multiindex_from_product_cols,
-        #     returns_nonzero=True,
-        #     trades_nonzero=True,
-        # )
-        # serializable_columns = ['/'.join(x) for x in aggregated.columns.to_flat_index().values]
-        # aggregated.columns = serializable_columns
         aggregated = method_independent_part(signals=backtests, keys=range(len(backtests)), trading_period_days=trading_period_days, multiindex_from_product_cols=multiindex_from_product_cols)
         #NOTE there should be only one column - something like Daily/Dist
         for col in aggregated.columns:
-            tune.track.log(name=col, **aggregated[col].to_dict())
+            ray.tune.track.log(name=col, **aggregated[col].to_dict())
             mlflow.log_metrics(aggregated[col].to_dict())
         mlflow.log_params(params)
         mlflow.log_param("UNIQUE_ID", UNIQUE_ID + "_MASTER")

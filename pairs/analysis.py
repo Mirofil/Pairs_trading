@@ -51,7 +51,7 @@ def infer_periods(single_backtest_df: pd.DataFrame):
     )
     formation_mask = single_backtest_df["Signals"] == "Formation"
     # All pairs should have the same trading/formation periods so it does not matter which ones we pick
-    example_pair = trading_period_mask.index[0][0]
+    example_pair = trading_period_mask.index.get_level_values(0)[0]
     trading_period = trading_period_mask.loc[(example_pair, slice(None))].loc[
         trading_period_mask.loc[(example_pair, slice(None))].values
     ]

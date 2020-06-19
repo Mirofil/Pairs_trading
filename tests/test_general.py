@@ -65,7 +65,7 @@ def test_distance():
     #%%
     start = datetime.datetime.now()
     dist_signal = signals(
-        spreads, timeframe=trading, formation=formation, lag=1, num_of_processes=3
+        spreads, trading_timeframe=trading, formation=formation, lag=1, num_of_processes=3
     )
     weights_from_signals(dist_signal, cost=0.003)
     end = datetime.datetime.now()

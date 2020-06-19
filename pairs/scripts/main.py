@@ -4,7 +4,8 @@ import pandas as pd
 import datetime
 from dateutil.relativedelta import relativedelta
 from pairs.distancemethod import distance, distance_spread
-from pairs.helpers import data_path, prefilter, preprocess
+from pairs.helpers import data_path
+# from pairs.helpers import prefilter, preprocess
 from pairs.cointmethod import coint_spread, cointegration, find_integrated
 from pairs.config import TradingUniverse
 from pairs.simulation import simulate
@@ -14,6 +15,7 @@ from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   weights_from_signals)
 from pairs.datasets.us_dataset import USDataset
 from pairs.datasets.crypto_dataset import CryptoDataset
+from pairs.analysis import descriptive_stats
 
 univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
 
@@ -37,8 +39,12 @@ univ_crypto = TradingUniverse(start_date=[2018,1,1], end_date=[2018,7,1])
 crypto = CryptoDataset(paper1_univ)
 
 
-formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 5, 1]))
-trading = (formation[1], formation[1] + relativedelta(months=2))
+formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 7, 1]))
+trading = (formation[1], formation[1] + relativedelta(months=3))
+end_date= datetime.date(*[2019, 9, 1])
+start_date = datetime.date(*[2018, 1, 1])
+
+
 
 root_folder = "paper1"
 
@@ -149,7 +155,9 @@ full_args = [[split[i], *args] for i in range(len(split))]
 
 coint_signal = signals(
     coint_spreads,
-    timeframe=args_dict["trading"],
+    start_date=start_date,
+    end_date=end_date,
+    trading_timeframe=args_dict["trading"],
     formation=args_dict["formation"],
     lag=args_dict["lag"],
     stoploss=args_dict["stoploss"],
@@ -161,7 +169,7 @@ print("Signals were done in: " + str(end - start))
 
 #%%
 start = datetime.datetime.now()
-coint_signal = signals_numeric(coint_signal)
+coint_signal = signals(coint_signal, start_date=start_date, end_date=end_date)
 weights_from_signals(coint_signal, cost=0.003)
 end = datetime.datetime.now()
 print("Weight from signals was done in: " + str(end - start))
@@ -182,7 +190,7 @@ print("Profit calculation was done in: " + str(end - start))
 # we take timeframe corresponding to Formation period when finding the lowest SSDs
 start = datetime.datetime.now()
 head = pick_range(preprocessed, formation[0], formation[1])
-distances = distance(head, num=20)
+distances = distance(head, num=20, method='oldschool')
 end = datetime.datetime.now()
 print("Distances were found in: " + str(end - start))
 #%%
@@ -196,7 +204,7 @@ spreads.sort_index(inplace=True)
 #%%
 start = datetime.datetime.now()
 dist_signal = signals(
-    spreads, timeframe=trading, formation=formation, lag=1, num_of_processes=1
+    spreads, start_date=start_date, end_date=end_date, trading_timeframe=trading, formation=formation, lag=1, num_of_processes=1
 )
 weights_from_signals(dist_signal, cost=0.003)
 end = datetime.datetime.now()

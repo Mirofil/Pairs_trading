@@ -15,18 +15,33 @@ import statsmodels
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
-from pairs.config import data_path, end_date, start_date
+from pairs.config import data_path
 
-def pick_range(y, start, end):
+
+def pick_range(df, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
-    past_start = y.index.levels[1] > pd.to_datetime(start)
-    before_end = y.index.levels[1] <= pd.to_datetime(end)
+    # There is a bug when the end is past the preprocessed length, one index of the level disappears?
+
+    # if timeframe[1] in df.loc[name].index:
+    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1])
+    # elif timeframe[1] - datetime.timedelta(days=1) in df.loc[name].index:
+    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1] - datetime.timedelta(days=1))
+    # elif timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
+    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1] - datetime.timedelta(days=2))
+
+    past_start = df.index.levels[1] > pd.to_datetime(start)
+    before_end = df.index.levels[1] <= pd.to_datetime(end)
     mask = (past_start) & (before_end)
 
-    return y.groupby(level=0).apply(lambda x: x.loc[mask]).droplevel(level=0)
+    result = df.groupby(level=0, group_keys=False).apply(lambda x: x.loc[mask])
+    if result.index.names[0] == result.index.names[1]:
+        result = result.droplevel(level=0)
+
+    return result
+
 
 def signals_numeric(olddf, copy=True):
-    #TODO I THINK THIS IS NOT USED AND WORTHLESSS
+    # TODO I THINK THIS IS NOT USED AND WORTHLESSS
     """ Prepares dummy variables so we can make a graph when the pair is open/close etc"""
     df = olddf.copy(deep=copy)
     for name, group in df.groupby(level=0):
@@ -44,7 +59,7 @@ def signals_numeric(olddf, copy=True):
 
 
 def signals_graph(df, pair, timeframe=None):
-    #TODO I THINK THIS IS NOT USED AND WORTHLESSS
+    # TODO I THINK THIS IS NOT USED AND WORTHLESSS
     if timeframe == None:
         df.loc[pair, "Numeric"].plot()
     else:
@@ -52,6 +67,7 @@ def signals_graph(df, pair, timeframe=None):
         sliced["Numeric"].plot()
 
     return 1
+
 
 def sliced_norm(df, pair, column, timeframe):
     """ normalizes a dataframe by timeframe slice (afterwards, the mean overall
@@ -61,6 +77,7 @@ def sliced_norm(df, pair, column, timeframe):
     mean = (sliced.loc[pair[0], column] - sliced.loc[pair[1], column]).mean()
     std = (sliced.loc[pair[0], column] - sliced.loc[pair[1], column]).std()
     return ((diff - mean) / std).values
+
 
 def weights_from_signals(df, cost=0):
     """ Sets the initial weights on position open so they can be propagated"""
@@ -89,11 +106,23 @@ def weights_from_signals(df, cost=0):
         "2Weights",
     ] = 0
 
+
 def propagate_weights(df, timeframe: List):
     """Propagates weights according to price changes
     Timeframe should be Formation """
     for name, group in df.groupby(level=0):
-        end_of_formation = df.loc[name].index.get_loc(timeframe[1])
+        # The end of formation might fall on weekend and US stock data do not have any rows for non-trading days
+        if timeframe[1] in df.loc[name].index:
+            end_of_formation = df.loc[name].index.get_loc(timeframe[1])
+        elif timeframe[1] - datetime.timedelta(days=1) in df.loc[name].index:
+            end_of_formation = df.loc[name].index.get_loc(
+                timeframe[1] - datetime.timedelta(days=1)
+            )
+        elif timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
+            end_of_formation = df.loc[name].index.get_loc(
+                timeframe[1] - datetime.timedelta(days=2)
+            )
+
         temp_weights1 = group["1Weights"].to_list()
         temp_weights2 = group["2Weights"].to_list()
         return1 = group["1Price"] - group["1Price"].shift(1)
@@ -110,25 +139,6 @@ def propagate_weights(df, timeframe: List):
         df.loc[name, "1Weights"] = temp_weights1
         df.loc[name, "2Weights"] = temp_weights2
 
-# def propagate_weights2(df, timeframe):
-#     idx = pd.IndexSlice
-#     grouped = df.groupby(level=0)
-#     for name, group in df.groupby(level=0):
-#         end_of_formation = df.loc[name].index.get_loc(timeframe[1])
-#         return1 = group["1Price"] - group["1Price"].shift(1)
-#         return2 = group["2Price"] - group["2Price"].shift(1)
-#         mask = (df["Signals"] == "keepLong") | (df["Signals"] == "keepShort")
-#         # mask = (group['Signals']=='keepLong')|(group['Signals']=='keepShort')
-#         cumreturn1 = (return1 + 1).loc[idx[mask]].cumprod()
-#         cumreturn2 = (return2 + 1).cumprod()
-#         # print(len(mask))
-#         # print(df.loc[idx[name, mask], '1Weights'])
-#         # print(cumreturn1)
-#         # print(df.loc[idx[name, mask], '1Weights'])
-#         df.loc[idx[name, mask], "1Weights"] = (
-#             df.loc[idx[name, mask], "1Weights"].shift(1) * cumreturn1
-#         )
-#         # df.loc[idx[name,mask],'1Weights']=5
 
 def calculate_profit(df, cost=0):
     """Inplace calculates the profit per period as well as a cumulative profit
@@ -168,17 +178,19 @@ def calculate_profit(df, cost=0):
 
 def signals_worker(
     multidf,
-    timeframe=5,
+    start_date,
+    end_date,
+    trading_timeframe=5,
     formation=5,
     threshold=2,
     lag=0,
     stoploss=100,
     num_of_processes=1,
 ):
-    global end_date
+
     idx = pd.IndexSlice
     for name, df in multidf.loc[
-        pd.IndexSlice[:, timeframe[0] : timeframe[1]], :
+        pd.IndexSlice[:, trading_timeframe[0] : trading_timeframe[1]], :
     ].groupby(level=0):
         df["Signals"] = None
         # df.loc[mask,'Signals'] = True
@@ -253,10 +265,12 @@ def signals_worker(
         col.append("Sell")
         # df['Signals'] = pd.Series(col[1:], index=df.index)
         multidf.loc[
-            pd.IndexSlice[name, timeframe[0] : timeframe[1]], "Signals"
+            pd.IndexSlice[name, trading_timeframe[0] : trading_timeframe[1]], "Signals"
         ] = pd.Series(col, index=df.index)
-    multidf.loc[idx[:, timeframe[1] : end_date], "Signals"] = multidf.loc[
-        idx[:, timeframe[1] : end_date], "Signals"
+        multidf.loc[pd.IndexSlice[name, trading_timeframe[1] : end_date], "Signals"] = None
+    multidf.loc[idx[:, trading_timeframe[1] : end_date], "Signals"] = None
+    multidf.loc[idx[:, trading_timeframe[1] : end_date], "Signals"] = multidf.loc[
+        idx[:, trading_timeframe[1] : end_date], "Signals"
     ].fillna(value="pastFormation")
     multidf.loc[idx[:, formation[0] : formation[1]], "Signals"] = multidf.loc[
         idx[:, formation[0] : formation[1]], "Signals"
@@ -270,7 +284,9 @@ def signals_worker(
 
 def signals(
     multidf,
-    timeframe=None,
+    start_date,
+    end_date,
+    trading_timeframe=None,
     formation=None,
     threshold=2,
     lag=0,
@@ -283,7 +299,9 @@ def signals(
 
         return signals_worker(
             multidf,
-            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            trading_timeframe=trading_timeframe,
             formation=formation,
             threshold=threshold,
             lag=lag,
@@ -296,7 +314,9 @@ def signals(
         split = [multidf.loc[x] for x in split]
         # Im not sure what I was doing here to be honest..
         args_dict = {
-            "trading": timeframe,
+            "start_date": start_date,
+            "end_date": end_date,
+            "trading": trading_timeframe,
             "formation": formation,
             "threshold": threshold,
             "lag": lag,
@@ -304,6 +324,8 @@ def signals(
             "num_of_processes": num_of_processes,
         }
         args = [
+            args_dict["start_date"],
+            args_dict["end_date"],
             args_dict["trading"],
             args_dict["formation"],
             args_dict["threshold"],
