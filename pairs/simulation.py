@@ -21,7 +21,7 @@ from pairs.analysis import (
     summarize,
 )
 from pairs.config import standard_result_metrics_from_desc_stats
-from pairs.cointmethod import coint_spread, cointegration, find_integrated
+from pairs.cointmethod import coint_spread, cointegration, find_integrated, cointegration_mixed
 
 from pairs.distancemethod import distance, distance_spread
 from pairs.helpers import data_path
@@ -32,6 +32,7 @@ from pairs.pairs_trading_engine import (
     signals,
     sliced_norm,
     weights_from_signals,
+    calculate_spreads
 )
 from pairs.helpers import remake_into_lists
 import mlflow
@@ -72,6 +73,7 @@ def simulate(
     stoploss = params["stoploss"]
     scenario = params["name"]
     save_path_results = params["save_path_results"]
+    confidence = params["confidence"]
 
     redo_prefiltered = params["redo_prefiltered"]
     redo_preprocessed = params["redo_preprocessed"]
@@ -205,10 +207,15 @@ def simulate(
                     preprocessed = pd.read_pickle(preprocessed_fpath)
 
         if "coint" == method:
-            coint_head = pick_range(preprocessed, formation[0], formation[1])
-            k = cointegration(find_integrated(coint_head), num_of_processes=1)
+            head = pick_range(preprocessed, formation[0], formation[1])
+            # k = cointegration(find_integrated(coint_head), num_of_processes=1)
+            distances = distance(head, num=20000, method='modern')
+            cointed = find_integrated(head)
+
+            k = cointegration_mixed(cointed, distances["viable_pairs"], desired_num = dist_num, confidence=confidence, show_progress_bar=show_progress_bar)
+
             short_y = pick_range(preprocessed, formation[0], trading[1])
-            spreads = coint_spread(
+            spreads = calculate_spreads(
                 short_y,
                 [item[0] for item in k],
                 timeframe=formation,
@@ -222,7 +229,7 @@ def simulate(
                 head, num=dist_num, show_progress_bar=show_progress_bar
             )
             short_y = pick_range(preprocessed, formation[0], trading[1])
-            spreads = distance_spread(
+            spreads = calculate_spreads(
                 short_y,
                 distances["viable_pairs"],
                 formation,

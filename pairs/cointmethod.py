@@ -12,13 +12,14 @@ import multiprocess as mp
 from sklearn.linear_model import LinearRegression
 from tqdm import tqdm
 from pairs.stattools_alt import coint
+import re
 try:
     import CyURT as urt
 except:
     pass
 
 
-def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False):
+def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False, show_progress_bar=True):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
     Takes the data from preprocess and filters out stationary series,
     returning data in the same format. 
@@ -26,7 +27,7 @@ def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False):
     pairs = df.index.unique(0)
     integrated = []
     df["logClose"] = np.log(df["Close"].values)
-    for pair in tqdm(pairs, desc='Finding integrated time series'):
+    for pair in tqdm(pairs, desc='Finding integrated time series', disable= not show_progress_bar):
         df.loc[pair, "logReturns"] = (
             np.log(df.loc[pair, "Close"]) - np.log(df.loc[pair, "Close"].shift(1))
         ).values
@@ -42,7 +43,7 @@ def find_integrated_fast(df, confidence=0.05, trend=b"c", regression=False):
 
     return df.loc[integrated]
 
-def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1, show_progres_bar = True):
+def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1, show_progress_bar = True):
     """Uses ADF test to decide I(1) as in the first step of AEG test. 
     Takes the data from preprocess and filters out stationary series,
     returning data in the same format. 
@@ -92,6 +93,34 @@ def find_integrated(df, confidence=0.05, regression="c", num_of_processes=1, sho
             if pvalue >= confidence:
                 integrated.append(pair)
         return df.loc[integrated]
+
+def cointegration_mixed(df_integrated_pairs, viable_pairs, desired_num=20, confidence=0.05, show_progress_bar=True):
+    """Computationally efficient cointegration method by mixing dist method with coint
+    Args:
+        df_integrated_pairs ([type]): DF where the stocks are all integrated
+        viable_pairs ([type]): Should come from dist method
+    """
+    integrated_pairs = df_integrated_pairs.index.unique(0)
+    cointegrated = []
+
+    for pair in tqdm(viable_pairs, desc ='Finding cointegrations across pairs', disable= not show_progress_bar):
+        if pair[0] not in integrated_pairs or pair[1] not in integrated_pairs:
+            continue
+
+        x = df_integrated_pairs.loc[pair[0], "logClose"].fillna(method="ffill").values
+        x = x.reshape((x.shape[0], 1))
+        y = df_integrated_pairs.loc[pair[1], "logClose"].fillna(method="ffill").values
+        y = y.reshape((y.shape[0], 1))
+        if ts.coint(x, y)[1] <= confidence:
+            model = sm.OLS(y, sm.add_constant(x))
+            results = model.fit()
+            # the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
+            cointegrated.append([pair, results.params])
+        
+        if len(cointegrated) >= desired_num:
+            break
+    
+    return cointegrated
 
 
 def cointegration_fast(df, confidence=0.05, show_progress_bar = True):
@@ -155,58 +184,3 @@ def cointegration(df, confidence=0.05, num_of_processes=1, show_progress_bar = T
                 # the model is like "second(logClose) - coef*first(logClose) = mean(logClose)+epsilon" in the pair
                 cointegrated.append([pair, results.params])
     return cointegrated
-
-
-def coint_spread(df, viable_pairs, timeframe, betas=1, show_progress_bar=True):
-    """Picks out the viable pairs of the original df (which has all pairs)
-    and adds to it the normPrice Spread among others, as well as initially
-    defines Weights and Profit """
-    idx = pd.IndexSlice
-    spreads = []
-    if betas == 1:
-        betas = [np.array([1, 1]) for i in range(len(viable_pairs))]
-    for pair, coefs in tqdm(zip(viable_pairs, betas), desc='Calculating coint spreads', total=len(viable_pairs), disable = not show_progress_bar):
-        # labels will be IOTAADA rather that IOTABTCADABTC,
-        # so we remove the last three characters
-        first = pair[0][:-3]
-        second = pair[1][:-3]
-        composed = first + "x" + second
-        multiindex = pd.MultiIndex.from_product(
-            [[composed], df.loc[pair[0]].index], names=["Pair", "Time"]
-        )
-        newdf = pd.DataFrame(index=multiindex)
-        newdf["1Weights"] = None
-        newdf["2Weights"] = None
-        newdf["Profit"] = 0
-        # newdf['normLogReturns']= sliced_norm (df, pair, 'logReturns', timeframe)
-        newdf["1Price"] = df.loc[pair[0], "Price"].values
-        newdf["2Price"] = df.loc[pair[1], "Price"].values
-        newdf["1logClose"] = df.loc[pair[0], "logClose"].values
-        newdf["2logClose"] = df.loc[pair[1], "logClose"].values
-        newdf["Spread"] = newdf["2logClose"] - newdf["1logClose"] * coefs[1]
-        newdf["SpreadBeta"] = coefs[1]
-        newdf["normSpread"] = (
-            (
-                newdf["Spread"]
-                - newdf.loc[idx[composed, timeframe[0] : timeframe[1]], "Spread"].mean()
-            )
-            / newdf.loc[idx[composed, timeframe[0] : timeframe[1]], "Spread"].std()
-        ).values
-        # pick_range(newdf, *timeframe)['Spread'].mean()
-        # not sure what those lines do
-        first = df.loc[pair[0]]
-        first.columns = ["1" + x for x in first.columns]
-        second = df.loc[pair[0]]
-        second.columns = ["2" + x for x in second.columns]
-        reindexed = (pd.concat([first, second], axis=1)).set_index(multiindex)
-
-        # normPriceOld = reindexed.normPrice
-        # reindexed.loc[:,'normPrice'] = (reindexed.loc[:,'normPrice']-reindexed.loc[:,'normPrice'].mean())/reindexed.loc[:,'normPrice'].std()
-        # possible deletion of useless columns to save memory..
-        # but maybe should be done earlier? Only normPrice
-        # should be relevant since its the spread at this point
-        # reindexed.drop(['Volume', 'Close', 'Returns'], axis = 1)
-        # reindexed['normPriceOld'] = normPriceOld
-        spreads.append(newdf)
-    return pd.concat(spreads)
-
