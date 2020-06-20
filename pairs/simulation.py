@@ -2,7 +2,7 @@
 import datetime
 import os
 from typing import *
-
+import time
 import numpy as np
 import pandas as pd
 import ray
@@ -60,9 +60,9 @@ def simulate(
     freq = params["freq"]
     lag = params["lag"]
     txcost = params["txcost"]
-    training_delta_raw = params["training_delta"]
+    training_delta_raw = params["pairs_deltas"]["training_delta"]
     volume_cutoff = params["volume_cutoff"]
-    formation_delta = params["formation_delta"]
+    formation_delta = params["pairs_deltas"]["formation_delta"]
     start_date = params["start_date"]
     end_date = params["end_date"]
     jump = params["jump"]
@@ -81,6 +81,8 @@ def simulate(
     saving_method = params["saving_method"]
     dataset = params["dataset"]
     trading_univ = params["trading_univ"]
+    tracking_uri = params["tracking_uri"]
+    run_ids = params["run_ids"]
 
     lag, stoploss, threshold, txcost = remake_into_lists(lag, stoploss, threshold, txcost)
 
@@ -109,19 +111,20 @@ def simulate(
     #     print(params, file=tf)
 
     backtests_store = [[] for prod in step2_arg_product]
-
     mlflow.set_tracking_uri(
-        "file:/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/mlruns/"
+        tracking_uri
     )
+    os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
     experiment_id = mlflowhelper.set_experiment(scenario)
 
 
     run_ids = []
 
     for _ in step2_arg_product:
-        run = mlflowhelper.start_run(experiment_id=experiment_id)
-        run_ids.append(run.active_run.info.run_id)
-        mlflow.end_run()
+        time.sleep(1)
+        with mlflow.start_run(experiment_id=experiment_id) as run:
+            run_ids.append(run.info.run_id)
+            time.sleep(0.2)
 
 
     for i in tqdm(
@@ -130,7 +133,7 @@ def simulate(
         disable=not show_progress_bar,
     ):
         artifacts = {}
-
+        ray.tune.track.log(iteration=str(i))
         formation = (
             start_date + i * jump_delta,
             start_date + formation_delta + i * jump_delta,
@@ -230,11 +233,12 @@ def simulate(
             )
             spreads.sort_index(inplace=True)
 
-        for arg_tuple,run_id, backtests in zip(itertools.product(lag,threshold, stoploss, txcost), run_ids, backtests_store):
-            lag_,threshold_,stoploss_, txcost_ = arg_tuple
-            with mlflowhelper.start_run(run_id=run_id, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
-                with mlflowhelper.start_run(nested=True, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
-
+        for arg_tuple,run_id, backtests, idx in zip(itertools.product(lag,threshold, stoploss, txcost), run_ids, backtests_store, range(len(run_ids))):
+            lag_,threshold_,stoploss_, txcost_ = list(arg_tuple)
+            with mlflowhelper.start_run(run_id=run_id):
+                time.sleep(0.25)
+                with mlflowhelper.start_run(nested=True):
+                    time.sleep(0.25)
                 #The best way would be to have a regular pipeline DAG here and somehow do plate-like notation for redistribution of parameters.
                 #since this part is independent of the previous
                     trading_signals = signals(
@@ -261,7 +265,7 @@ def simulate(
                             )
                         )
 
-                    backtests.append(trading_signals)
+                    backtests_store[idx].append(trading_signals)
 
                     artifacts["trading_signals"] = trading_signals
                     artifacts["preprocessed"] = preprocessed
@@ -277,6 +281,10 @@ def simulate(
                     for col in aggregated.columns:
                         mlflow.log_metrics(aggregated[col].to_dict())
                     mlflow.log_params(params)
+                    mlflow.log_param("specific_threshold", threshold_)
+                    mlflow.log_param("specific_lag", lag_)
+                    mlflow.log_param("specific_txcost", txcost_)
+                    mlflow.log_param("specific_stoploss", stoploss_)
                     mlflow.log_param("formation", str(formation))
                     mlflow.log_param("trading", str(trading))
                     mlflow.log_param("UNIQUE_ID", UNIQUE_ID + f"_{i}")
@@ -290,22 +298,26 @@ def simulate(
                     #         artifact_df.to_parquet(artifact.get_path())
 
                 
-                    for artifact_name, artifact_df in artifacts.items():
-                        artifact_df.to_parquet(f"{artifact_name}.parquet")
-                        mlflow.log_artifact(f"{artifact_name}.parquet")
-                        os.remove(f"{artifact_name}.parquet")
+                    # for artifact_name, artifact_df in artifacts.items():
+                    #     artifact_df.to_parquet(f"{artifact_name}.parquet")
+                    #     mlflow.log_artifact(f"{artifact_name}.parquet")
+                    #     os.remove(f"{artifact_name}.parquet")
 
         if trading[1] == end_date:
             break
 
-    for backtests, run_id in zip(backtests_store, run_ids):
-        with mlflowhelper.start_run(run_id=run_id, experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id):
+    for backtests, run_id, idx in zip(backtests_store, run_ids, range(len(run_ids))):
+        # experiment_id = mlflow.get_experiment_by_name(scenario).experiment_id
+        with mlflowhelper.start_run(run_id=run_id):
+            print(backtests)
+            print(run_id)
             aggregated = method_independent_part(
-                signals=backtests,
-                keys=range(len(backtests)),
+                signals=backtests_store[idx],
+                keys=range(len(backtests_store[idx])),
                 trading_period_days=trading_period_days,
                 multiindex_from_product_cols=multiindex_from_product_cols,
             )
+            print(aggregated)
             # NOTE there should be only one column - something like Daily/Dist
             for col in aggregated.columns:
                 # ray.tune.track.log(name=col, **aggregated[col].to_dict())

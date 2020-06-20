@@ -188,6 +188,11 @@ def signals_worker(
     num_of_processes=1,
 ):
 
+    # Without the copy, it was causing bugs since this there is in-place mutation - in particular, the simulation scheme where we share the dist/coint signals and have multiple parameters after that would cause problems
+    multidf = multidf.copy(deep=True)
+
+    #Stoploss should signify the number in excess of the threshold that causes stoploss!
+    stoploss = threshold + stoploss
     idx = pd.IndexSlice
     for name, df in multidf.loc[
         pd.IndexSlice[:, trading_timeframe[0] : trading_timeframe[1]], :
@@ -267,7 +272,9 @@ def signals_worker(
         multidf.loc[
             pd.IndexSlice[name, trading_timeframe[0] : trading_timeframe[1]], "Signals"
         ] = pd.Series(col, index=df.index)
-        multidf.loc[pd.IndexSlice[name, trading_timeframe[1] : end_date], "Signals"] = None
+        multidf.loc[
+            pd.IndexSlice[name, trading_timeframe[1] : end_date], "Signals"
+        ] = None
     multidf.loc[idx[:, trading_timeframe[1] : end_date], "Signals"] = None
     multidf.loc[idx[:, trading_timeframe[1] : end_date], "Signals"] = multidf.loc[
         idx[:, trading_timeframe[1] : end_date], "Signals"
