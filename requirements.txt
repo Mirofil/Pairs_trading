@@ -1,7 +1,5 @@
-pip
 binance
 lightgbm
-main
 matplotlib
 multiprocess
 numpy
