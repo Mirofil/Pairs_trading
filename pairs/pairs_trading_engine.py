@@ -105,6 +105,57 @@ def weights_from_signals(df, cost=0):
         ),
         "2Weights",
     ] = 0
+    
+def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar=True):
+    """Picks out the viable pairs of the original df (which has all pairs)
+    and adds to it the normPrice Spread among others, as well as initially
+    defines Weights and Profit """
+    idx = pd.IndexSlice
+    spreads = []
+    # the 1,1 betas are for Distance method and even though Cointegration would have different coeffs, I am not sure why it is here?
+    if betas == None:
+        betas = [np.array([1, 1]) for i in range(len(viable_pairs))]
+    for pair, coefs in tqdm(
+        zip(viable_pairs, betas),
+        desc="Calculating spreads",
+        disable=not show_progress_bar,
+        total=len(viable_pairs),
+    ):
+        # labels will be IOTAADA rather that IOTABTCADABTC,
+        # so we remove the last three characters
+        first = re.sub(r"USDT$|USD$|BTC$", "", pair[0])
+        second = re.sub(r"USDT$|USD$|BTC$", "", pair[1])
+        composed = first + "x" + second
+        multiindex = pd.MultiIndex.from_product(
+            [[composed], df.loc[pair[0]].index], names=["Pair", "Time"]
+        )
+        newdf = pd.DataFrame(index=multiindex)
+        newdf["1Weights"] = None
+        newdf["2Weights"] = None
+        newdf["Profit"] = 0
+        newdf["normLogReturns"] = sliced_norm(df, pair, "logReturns", timeframe)
+        newdf["1Price"] = df.loc[pair[0], "Price"].values
+        newdf["2Price"] = df.loc[pair[1], "Price"].values
+        newdf["Spread"] = (
+            -coefs[1] * df.loc[pair[0], "Price"] + df.loc[pair[1], "Price"]
+        ).values
+        newdf["SpreadBeta"] = coefs[1]
+        newdf["normSpread"] = (
+            (
+                newdf["Spread"]
+                - newdf.loc[idx[composed, timeframe[0] : timeframe[1]], "Spread"].mean()
+            )
+            / newdf.loc[idx[composed, timeframe[0] : timeframe[1]], "Spread"].std()
+        ).values
+        # not sure what those lines do
+        first = df.loc[pair[0]]
+        first.columns = ["1" + x for x in first.columns]
+        second = df.loc[pair[0]]
+        second.columns = ["2" + x for x in second.columns]
+        reindexed = (pd.concat([first, second], axis=1)).set_index(multiindex)
+
+        spreads.append(newdf)
+    return pd.concat(spreads)
 
 
 def propagate_weights(df, timeframe: List):

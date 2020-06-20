@@ -113,9 +113,12 @@ stoploss()
 start = datetime.datetime.now()
 coint_head = pick_range(preprocessed, formation[0], formation[1])
 # find_integrated(coint_head, num_of_processes=1)
-k = cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=1)
-cointed = find_integrated_fast(coint_head)
-k = cointegration_fast(cointed)
+# k = cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=1)
+head = pick_range(preprocessed, formation[0], formation[1])
+distances = distance(head, num=2000, method='modern')
+cointed = find_integrated(coint_head)
+k = cointegration_mixed(cointed, distances["viable_pairs"])
+# k = cointegration(cointed)
 
 end = datetime.datetime.now()
 print("Cointegrations were found in: " + str(end - start))
@@ -133,44 +136,25 @@ end = datetime.datetime.now()
 print("Cointegrations spreads were done in: " + str(end - start))
 #%%
 start = datetime.datetime.now()
-num_of_processes = 3
-split = np.array_split(coint_spreads, num_of_processes)
-split = [pd.DataFrame(prefiltered) for x in split]
-args_dict = {
-    "trading": trading,
-    "formation": formation,
-    "threshold": 2,
-    "lag": 1,
-    "stoploss": 100,
-    "num_of_processes": num_of_processes,
-}
-args = [
-    args_dict["trading"],
-    args_dict["formation"],
-    args_dict["threshold"],
-    args_dict["lag"],
-    args_dict["stoploss"],
-    args_dict["num_of_processes"],
-]
-full_args = [[split[i], *args] for i in range(len(split))]
 
 coint_signal = signals(
     coint_spreads,
     start_date=start_date,
     end_date=end_date,
-    trading_timeframe=args_dict["trading"],
-    formation=args_dict["formation"],
-    lag=args_dict["lag"],
-    stoploss=args_dict["stoploss"],
-    num_of_processes=args_dict["num_of_processes"],
+    trading_timeframe=trading,
+    formation=formation,
+    lag=1,
+    stoploss=100,
+    num_of_processes=1
 )
-# results=signals(coint_spreads, timeframe = args_dict['trading'], formation = args_dict['formation'],lag = args_dict['lag'], stoploss = args_dict['stoploss'], num_of_processes=1)
 end = datetime.datetime.now()
 print("Signals were done in: " + str(end - start))
 
 #%%
 start = datetime.datetime.now()
-coint_signal = signals(coint_signal, start_date=start_date, end_date=end_date)
+coint_signal = signals(
+    coint_signal, start_date=start_date, end_date=end_date, trading_timeframe=trading, formation=formation, lag=1, num_of_processes=1
+)
 weights_from_signals(coint_signal, cost=0.003)
 end = datetime.datetime.now()
 print("Weight from signals was done in: " + str(end - start))
