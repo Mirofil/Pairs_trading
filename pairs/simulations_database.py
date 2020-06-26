@@ -34,7 +34,6 @@ def generate_scenario(
     #     run = mlflow.start_run(experiment_id= mlflow.get_experiment_by_name(trading_univ["name"]).experiment_id)
     #     run_ids.append(run.info.run_id)
     #     mlflow.end_run()
-    print(pairs_deltas)
     to_return = {
         "freq": freq,
         "lag": lag,

@@ -3,9 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime
 from dateutil.relativedelta import relativedelta
-from pairs.distancemethod import distance, distance_spread
 from pairs.helpers import data_path
-from pairs.cointmethod import coint_spread, cointegration, find_integrated
 from pairs.config import NUMOFPROCESSES, data_path, end_date, save, start_date, version, TradingUniverse
 from pairs.simulation import simulate
 from pairs.simulations_database import *
@@ -90,26 +88,3 @@ if __name__ == "__main__":
             dataset=USDataset(config=univ)
         ),
     )
-
-#%%
-analysis = tune.run(
-    simulate,
-    name="results_backwards_compat",
-    config=generate_scenario(
-        freq="1D",
-        lag=1,
-        txcost=0.003,
-        training_delta=[2, 0, 0],
-        formation_delta=[4, 0, 0],
-        jump=[1, 0, 0],
-        method="dist",
-        dist_num=20,
-        threshold=2,
-        stoploss=100,
-        redo_prefiltered=True,
-        redo_preprocessed=True,
-        truncate=True,
-        trading_univ=univ,
-        dataset=USDataset(config=univ)
-    ),
-)
