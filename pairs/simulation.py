@@ -290,8 +290,8 @@ def simulate(
             }
             return all_params
         
-        params.append(log_params_with_retries)
-        metrics.append(log_metrics_with_retries)
+        params.append(log_params_with_retries(params, threshold,lag,txcost,stoploss,formation,trading,UNIQUE_ID))
+        metrics.append(log_metrics_with_retries(aggregated))
 
 
         # for col in aggregated.columns:
