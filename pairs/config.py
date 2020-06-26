@@ -14,10 +14,10 @@ class TradingUniverse:
         save_path_results=None,
         freq="1D",
         data_path=None,
-        name="scenarioX",
+        name="Whatever name",
         saving_method = 'parquet',
         show_progress_bar=False,
-        tracking_uri = "file:/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/mlruns/"
+        tracking_uri = "http://0.0.0.0:5000"
     ):
         self.start_date = datetime.date(*start_date)
         self.end_date = datetime.date(*end_date)

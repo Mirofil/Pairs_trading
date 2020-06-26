@@ -157,21 +157,27 @@ def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar
         spreads.append(newdf)
     return pd.concat(spreads)
 
+def nearest(items, pivot):
+    return min(items, key=lambda x: abs(x - pivot))
 
-def propagate_weights(df, timeframe: List):
+def propagate_weights(df, formation_timeframe: List):
     """Propagates weights according to price changes
     Timeframe should be Formation """
     for name, group in df.groupby(level=0):
         # The end of formation might fall on weekend and US stock data do not have any rows for non-trading days
-        if timeframe[1] in df.loc[name].index:
-            end_of_formation = df.loc[name].index.get_loc(timeframe[1])
-        elif timeframe[1] - datetime.timedelta(days=1) in df.loc[name].index:
+        if formation_timeframe[1] in df.loc[name].index:
+            end_of_formation = df.loc[name].index.get_loc(formation_timeframe[1])
+        elif formation_timeframe[1] - datetime.timedelta(days=1) in df.loc[name].index:
             end_of_formation = df.loc[name].index.get_loc(
-                timeframe[1] - datetime.timedelta(days=1)
+                formation_timeframe[1] - datetime.timedelta(days=1)
             )
-        elif timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
+        elif formation_timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
             end_of_formation = df.loc[name].index.get_loc(
-                timeframe[1] - datetime.timedelta(days=2)
+                formation_timeframe[1] - datetime.timedelta(days=2), method = 'backfill'
+            )
+        else:
+            end_of_formation = df.loc[name].index.get_loc(
+                formation_timeframe[1] - datetime.timedelta(days=2), method = 'nearest'
             )
 
         temp_weights1 = group["1Weights"].to_list()
@@ -180,13 +186,14 @@ def propagate_weights(df, timeframe: List):
         return2 = group["2Price"] - group["2Price"].shift(1)
         # print(end_of_formation, len(group.index), name)
         for i in range(end_of_formation + 1, len(group.index)):
-            if group.iloc[i]["Signals"] in ["keepLong", "keepShort"]:
-                # print(temp_weights1[i-1], temp_weights2[i-1])
-                # print(group.index[i])
-                # df.loc[(name,group.index[i]),'1Weights']=df.loc[(name, group.index[i-1]), '1Weights']*1.1
-                # not sure if the indexes are matched correctly here
-                temp_weights1[i] = temp_weights1[i - 1] * (1 + return1.iloc[i])
-                temp_weights2[i] = temp_weights2[i - 1] * (1 + return2.iloc[i])
+            #I think shifting the index to god knows where might break this? Better put try to be safe
+            try:
+                if group.iloc[i]["Signals"] in ["keepLong", "keepShort"]:
+
+                    temp_weights1[i] = temp_weights1[i - 1] * (1 + return1.iloc[i])
+                    temp_weights2[i] = temp_weights2[i - 1] * (1 + return2.iloc[i])
+            except:
+                continue
         df.loc[name, "1Weights"] = temp_weights1
         df.loc[name, "2Weights"] = temp_weights2
 
