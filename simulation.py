@@ -5,10 +5,11 @@ from distancemethod import *
 import os
 from config import *
 import datetime
+from randommethod import *
 num_of_processes=NUMOFPROCESSES
 pd.options.mode.chained_assignment = None
 #%%
-def simulate(params, num_of_processes = num_of_processes):
+def simulate(params, num_of_processes = num_of_processes, random_idx=None):
     #freq,lag,txcost,training_delta, cutoff,formation_delta, start, end, jump, methods, dist_num, scenario,truncate=False,redo_x=False, redo_y=False
     freq,lag,txcost,training_delta,cutoff,formation_delta,start,end,jump, methods, dist_num, threshold,stoploss,scenario=params.values()
     global data_path
@@ -27,8 +28,11 @@ def simulate(params, num_of_processes = num_of_processes):
     #5000 is arbirtrarily high limit that will never be reached - but the 
     print('Starting '+ scenario)
     print('\n')
-    if not os.path.isdir(save+scenario):
-        os.mkdir(save+scenario)
+    if not os.path.isdir(save+scenario) or not os.path.isdir(save+scenario+str(random_idx)):
+        if random_idx is not None:
+            os.mkdir(save+scenario+str(random_idx))
+        else:
+            os.mkdir(save+scenario)
     with open(save+scenario+'\\'+'parameters'+'.txt', 'w') as tf:
         print(params, file=tf)
     for i in range(5000):
@@ -82,6 +86,20 @@ def simulate(params, num_of_processes = num_of_processes):
             #np.save(save+scenario+'\\'+str(i)+'dist_signal', dist_signal)
             #dist_signal.to_pickle(save+scenario+'\\'+str(i)+'dist_signal.pkl')
             dist_signal.to_pickle(save+scenario+os.sep+str(i)+'dist_signal.pkl')
+
+        if 'random' in methods:
+            head = pick_range(y, formation[0], formation[1])
+            distances = distance(head, num = dist_num)
+            short_y=pick_range(y, formation[0], trading[1])
+            spreads=distance_spread(short_y,distances[2], formation)
+            spreads.sort_index(inplace=True)
+            dist_signal=signals(spreads, timeframe=trading, formation=formation,lag = lag, threshold = threshold, stoploss=stoploss, num_of_processes=num_of_processes)
+            weights_from_signals(dist_signal, cost=txcost)
+            propagate_weights(dist_signal, formation)
+            calculate_profit(dist_signal, cost=txcost) 
+            #np.save(save+scenario+'\\'+str(i)+'dist_signal', dist_signal)
+            #dist_signal.to_pickle(save+scenario+'\\'+str(i)+'dist_signal.pkl')
+            dist_signal.to_pickle(save+scenario+str(random_idx)+os.sep+str(i)+'random_signal.pkl')
         if trading[1]==enddate:
             break
         

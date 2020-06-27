@@ -1,9 +1,13 @@
 import datetime
 from config import *
 #Order sensitive!
+
 #DAILY
 starting_date = startdate
 ending_date = enddate
+
+scenario_random={"freq":"1D",'lag':1, 'txcost':0.003, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':starting_date, 'end':ending_date, 'jump':[1,0,0], 'methods':['random'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario_random"}
+
 scenario1={"freq":"1D",'lag':1, 'txcost':0.003, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':starting_date, 'end':ending_date, 'jump':[1,0,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario1"}
 scenario2={"freq":"1D",'lag':1, 'txcost':0.000, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':starting_date, 'end':ending_date, 'jump':[1,0,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario2'}
 #changed cutoff
