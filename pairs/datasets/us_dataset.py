@@ -19,7 +19,7 @@ from pairs.datasets.base import Dataset
 
 
 class USDataset(Dataset):
-    def __init__(self, config=TradingUniverse()):
+    def __init__(self, config=None):
         files = os.listdir(config["data_path"])
         self.paths = [os.path.join(config["data_path"], x) for x in files]
         self.config = config

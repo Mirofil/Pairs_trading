@@ -3,22 +3,40 @@ import numpy as np
 import pandas as pd
 import datetime
 from dateutil.relativedelta import relativedelta
-from pairs.distancemethod import distance, distance_spread
+from pairs.distancemethod import distance
 from pairs.helpers import data_path
 # from pairs.helpers import prefilter, preprocess
-from pairs.cointmethod import coint_spread, cointegration, find_integrated
+from pairs.cointmethod import cointegration, find_integrated
 from pairs.config import TradingUniverse
 from pairs.simulation import simulate
 from pairs.simulations_database import *
 from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   propagate_weights, signals, sliced_norm,
-                                  weights_from_signals)
+                                  weights_from_signals, calculate_spreads)
 from pairs.datasets.us_dataset import USDataset
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.analysis import descriptive_stats
 
-univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/nyse/')
+univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/', tracking_uri="http://0.0.0.0:5000",
+        start_date=[1990, 1, 1],
+        end_date=[1995, 1, 1],show_progress_bar=True)
 
+config=generate_scenario(
+        freq="1D",
+        lag=1,
+        txcost=0.003,
+        pairs_deltas={'formation_delta':[6,0,0], 'training_delta':[3,0,0]},
+        jump=[1, 0, 0],
+        method="dist",
+        dist_num=20,
+        threshold=2,
+        stoploss=100,
+        redo_prefiltered=True,
+        redo_preprocessed=True,
+        truncate=True,
+        trading_univ=univ,
+        dataset=USDataset(config=univ)
+    )
 
 
 formation = (datetime.date(*[2018, 1, 1]), datetime.date(*[2018, 7, 1]))
@@ -181,7 +199,7 @@ print("Distances were found in: " + str(end - start))
 #%%
 start = datetime.datetime.now()
 short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
-spreads = distance_spread(short_preprocessed, distances['viable_pairs'], formation)
+spreads = calculate_spreads(short_preprocessed, distances['viable_pairs'], formation)
 end = datetime.datetime.now()
 print("Distance spreads were found in: " + str(end - start))
 # this is some technical detail needed later?

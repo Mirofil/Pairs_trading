@@ -7,15 +7,9 @@ from pairs.distancemethod import distance
 from pairs.helpers import data_path
 from pairs.cointmethod import cointegration, find_integrated
 from pairs.config import (
-    NUMOFPROCESSES,
-    data_path,
-    end_date,
-    save,
-    start_date,
-    version,
     TradingUniverse,
 )
-from pairs.simulation import simulate
+from pairs.simulation import simulate, simulate_mlflow
 from pairs.simulations_database import generate_scenario
 from pairs.pairs_trading_engine import (
     calculate_profit,
@@ -32,8 +26,8 @@ from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.datasets.us_dataset import USDataset
 
 univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/', tracking_uri="http://0.0.0.0:5000",
-        start_date=[1990, 1, 1],
-        end_date=[1990, 11, 1],)
+        start_date=[1996, 1, 1],
+        end_date=[2020, 1, 1],show_progress_bar=True)
 
 config=generate_scenario(
         freq="1D",
@@ -51,8 +45,9 @@ config=generate_scenario(
         trading_univ=univ,
         dataset=USDataset(config=univ)
     )
-
+#%%
 simulate(config)
+
 if __name__ == "__main__":
     ray.init(
         num_cpus=39,
@@ -65,13 +60,13 @@ if __name__ == "__main__":
         data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/",
         tracking_uri="http://0.0.0.0:5000",
         start_date=[1990, 1, 1],
-        end_date=[2020, 1, 1],
+        end_date=[1991, 1, 1],
         volume_cutoff=[0.1, 1],
-        name="nyse_dist_big7",
+        name="nyse_dist_big8",
     )
 
     analysis = tune.run(
-        simulate,
+        simulate_mlflow,
         local_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/ray_results/",
         name="simulate_retries3",
         max_failures=3,

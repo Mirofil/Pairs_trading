@@ -20,22 +20,24 @@ import itertools
 import operator
 
 def most_common(L):
-  # get an iterable of (item, iterable) pairs
-  SL = sorted((x, i) for i, x in enumerate(L))
-  # print 'SL:', SL
-  groups = itertools.groupby(SL, key=operator.itemgetter(0))
-  # auxiliary function to get "quality" for an item
-  def _auxfun(g):
-    item, iterable = g
-    count = 0
-    min_index = len(L)
-    for _, where in iterable:
-      count += 1
-      min_index = min(min_index, where)
-    # print 'item %r, count %r, minind %r' % (item, count, min_index)
-    return count, -min_index
-  # pick the highest-count/earliest item
-  return max(groups, key=_auxfun)[0]
+    if len(L) == 0:
+        return False
+    # get an iterable of (item, iterable) pairs
+    SL = sorted((x, i) for i, x in enumerate(L))
+    # print 'SL:', SL
+    groups = itertools.groupby(SL, key=operator.itemgetter(0))
+    # auxiliary function to get "quality" for an item
+    def _auxfun(g):
+        item, iterable = g
+        count = 0
+        min_index = len(L)
+        for _, where in iterable:
+            count += 1
+            min_index = min(min_index, where)
+        # print 'item %r, count %r, minind %r' % (item, count, min_index)
+        return count, -min_index
+    # pick the highest-count/earliest item
+    return max(groups, key=_auxfun)[0]
 
 class Dataset(ABC):
     def __init__(self):
@@ -80,7 +82,10 @@ class Dataset(ABC):
 
     def prefilter(self, paths=None, start_date=None, end_date=None, drop_any_na=True, show_progress_bar=False):
         """ Prefilters the time series so that we have only moderately old pairs (listed past start_date_date)
-        and uses a volume percentile cutoff. The output is in array (pair, its volume) """
+        and uses a volume percentile cutoff. The output is in array (pair, its volume)
+        
+        The start_date, end_date should always be passed in so that the prefiltering happens per each iteration 
+        If none are supplied, its taken from the config, but the config start_date and end_date are for the whole experiemnt rather than individual backtests """
         if paths is None:
             paths = self.paths
 
@@ -105,12 +110,14 @@ class Dataset(ABC):
             desc="Prefiltering pairs (based on volume and start_date/end_date of trading)",
             disable = not show_progress_bar
         ):
-
+            # print(f"Processing {paths[i]} at {i}")
             df = pd.read_csv(paths[i])
+            df = df.set_index("Date", drop=False)
+
             if drop_any_na is True:
-                if len(df.dropna()) < len(df):
+                if len(df.loc[idx[str(start_date) : str(end_date)]].dropna()) < len(df.loc[idx[str(start_date) : str(end_date)]]):
                     continue
-                if any(df["Volume"]==0):
+                if any(df.loc[idx[str(start_date) : str(end_date)]]["Volume"]==0):
                     continue
             df.rename({"Opened": "Date"}, axis="columns", inplace=True, errors='ignore')
 
@@ -119,7 +126,6 @@ class Dataset(ABC):
                 pd.to_datetime(df.iloc[-1]["Date"]) > pd.to_datetime(end_date)
             ):
                 # the Volume gets normalized to BTC before sorting
-                df = df.set_index("Date")
                 df = df.sort_index()
                 admissible.append(
                     [
@@ -131,14 +137,13 @@ class Dataset(ABC):
                     ]
                 )
                 lens_of_admissible.append(len(df.loc[idx[str(start_date) : str(end_date)]]))
-        
-        most_common_len = most_common(lens_of_admissible)
-        indexes_to_remove=[]
-        for idx,ts in enumerate(admissible):
-            if lens_of_admissible[idx] != most_common_len:
-                indexes_to_remove.append(idx)
-        for index in indexes_to_remove:
-            del admissible[index]
+        if most_common(lens_of_admissible) != False:
+            most_common_len = most_common(lens_of_admissible)
+            indexes_to_remove=[]
+            for idx,ts in enumerate(admissible):
+                if lens_of_admissible[idx] != most_common_len:
+                    indexes_to_remove.append(idx)
+            admissible = [admissible[i] for i in range(len(admissible)) if i not in indexes_to_remove]
 
         # sort by Volume and pick upper percentile
         admissible.sort(key=lambda x: x[1])
@@ -150,8 +155,10 @@ class Dataset(ABC):
 
         result = np.array(admissible)
 
-        result = pd.DataFrame(np.array(admissible), columns=["0", "1"])
-        result.columns = [str(col) for col in result.columns]
-
+        if len(admissible) > 0:
+            result = pd.DataFrame(result, columns=["0", "1"])
+            result.columns = [str(col) for col in result.columns]
+        else:
+            result = pd.DataFrame(result)
         self.prefiltered_paths = result
         return result

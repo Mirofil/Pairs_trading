@@ -29,11 +29,22 @@ def pick_range(df, start, end):
     # elif timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
     #     end_of_formation = df.loc[name].index.get_loc(timeframe[1] - datetime.timedelta(days=2))
 
-    past_start = df.index.levels[1] > pd.to_datetime(start)
-    before_end = df.index.levels[1] <= pd.to_datetime(end)
-    mask = (past_start) & (before_end)
-
-    result = df.groupby(level=0).apply(lambda x: x.loc[mask])
+    # past_start = df.index.levels[1] > pd.to_datetime(start)
+    # before_end = df.index.levels[1] <= pd.to_datetime(end)
+    # mask = (past_start) & (before_end)
+    new_df = []
+    for ticker in df.index.unique(0):
+        interim = df.loc[ticker]
+        new_df.append(
+            interim.loc[
+                (interim.index > pd.to_datetime(start))
+                & (interim.index <= pd.to_datetime(end))
+            ]
+        )
+    df = pd.concat(new_df, keys=df.index.unique(0))
+    result = df
+    # The old way of doing this - should be qul
+    # result = df.groupby(level=0).apply(lambda x: x.loc[x.index.levels[1] > pd.to_datetime(start) & x.index.levels[1] <= pd.to_datetime(end)])
     if result.index.names[0] == result.index.names[1]:
         result = result.droplevel(level=0)
 
@@ -76,7 +87,9 @@ def sliced_norm(df, pair, column, timeframe):
     diff = df.loc[pair[0], column] - df.loc[pair[1], column]
     mean = (sliced.loc[pair[0], column] - sliced.loc[pair[1], column]).mean()
     std = (sliced.loc[pair[0], column] - sliced.loc[pair[1], column]).std()
-    return ((diff - mean) / std).values
+    result = ((diff - mean) / std).values
+    result = result[~np.isnan(result)]
+    return result
 
 
 def weights_from_signals(df, cost=0):
@@ -105,7 +118,8 @@ def weights_from_signals(df, cost=0):
         ),
         "2Weights",
     ] = 0
-    
+
+
 def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar=True):
     """Picks out the viable pairs of the original df (which has all pairs)
     and adds to it the normPrice Spread among others, as well as initially
@@ -126,19 +140,25 @@ def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar
         first = re.sub(r"USDT$|USD$|BTC$", "", pair[0])
         second = re.sub(r"USDT$|USD$|BTC$", "", pair[1])
         composed = first + "x" + second
+        pairs_index_intersection = df.loc[pair[0]].index.intersection(
+            df.loc[pair[1]].index
+        )
+
         multiindex = pd.MultiIndex.from_product(
-            [[composed], df.loc[pair[0]].index], names=["Pair", "Time"]
+            [[composed], pairs_index_intersection], names=["Pair", "Time"]
         )
         newdf = pd.DataFrame(index=multiindex)
         newdf["1Weights"] = None
         newdf["2Weights"] = None
         newdf["Profit"] = 0
-        newdf["normLogReturns"] = sliced_norm(df, pair, "logReturns", timeframe)
-        newdf["1Price"] = df.loc[pair[0], "Price"].values
-        newdf["2Price"] = df.loc[pair[1], "Price"].values
-        newdf["Spread"] = (
-            -coefs[1] * df.loc[pair[0], "Price"] + df.loc[pair[1], "Price"]
-        ).values
+        sliced_norm_logreturns = sliced_norm(df, pair, "logReturns", timeframe)
+
+        newdf["normLogReturns"] = sliced_norm_logreturns
+        newdf["1Price"] = df.loc[(pair[0], pairs_index_intersection), "Price"].values
+        newdf["2Price"] = df.loc[(pair[1], pairs_index_intersection), "Price"].values
+
+        spreads_interim = -coefs[1] * df.loc[(pair[0], pairs_index_intersection), "Price"]+ df.loc[(pair[1], pairs_index_intersection), "Price"].values
+        newdf["Spread"] = spreads_interim.values
         newdf["SpreadBeta"] = coefs[1]
         newdf["normSpread"] = (
             (
@@ -147,18 +167,14 @@ def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar
             )
             / newdf.loc[idx[composed, timeframe[0] : timeframe[1]], "Spread"].std()
         ).values
-        # not sure what those lines do
-        first = df.loc[pair[0]]
-        first.columns = ["1" + x for x in first.columns]
-        second = df.loc[pair[0]]
-        second.columns = ["2" + x for x in second.columns]
-        reindexed = (pd.concat([first, second], axis=1)).set_index(multiindex)
 
         spreads.append(newdf)
     return pd.concat(spreads)
 
+
 def nearest(items, pivot):
     return min(items, key=lambda x: abs(x - pivot))
+
 
 def propagate_weights(df, formation_timeframe: List):
     """Propagates weights according to price changes
@@ -173,20 +189,19 @@ def propagate_weights(df, formation_timeframe: List):
             )
         elif formation_timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
             end_of_formation = df.loc[name].index.get_loc(
-                formation_timeframe[1] - datetime.timedelta(days=2), method = 'backfill'
+                formation_timeframe[1] - datetime.timedelta(days=2), method="backfill"
             )
         else:
             end_of_formation = df.loc[name].index.get_loc(
-                formation_timeframe[1] - datetime.timedelta(days=2), method = 'nearest'
+                formation_timeframe[1] - datetime.timedelta(days=2), method="nearest"
             )
 
         temp_weights1 = group["1Weights"].to_list()
         temp_weights2 = group["2Weights"].to_list()
         return1 = group["1Price"] - group["1Price"].shift(1)
         return2 = group["2Price"] - group["2Price"].shift(1)
-        # print(end_of_formation, len(group.index), name)
         for i in range(end_of_formation + 1, len(group.index)):
-            #I think shifting the index to god knows where might break this? Better put try to be safe
+            # I think shifting the index to god knows where might break this? Better put try to be safe
             try:
                 if group.iloc[i]["Signals"] in ["keepLong", "keepShort"]:
 
@@ -249,7 +264,7 @@ def signals_worker(
     # Without the copy, it was causing bugs since this there is in-place mutation - in particular, the simulation scheme where we share the dist/coint signals and have multiple parameters after that would cause problems
     multidf = multidf.copy(deep=True)
 
-    #Stoploss should signify the number in excess of the threshold that causes stoploss!
+    # Stoploss should signify the number in excess of the threshold that causes stoploss!
     stoploss = threshold + stoploss
     idx = pd.IndexSlice
     for name, df in multidf.loc[
@@ -309,7 +324,6 @@ def signals_worker(
                 & (col[i + lag - 1] not in ["keepLong"])
                 & (col[truei + lag + 1] not in ["Long", "keepLong"])
             ):
-                # print(i, col, name, col[truei+lag]!='Long', truei)
                 fill = "Long"
                 col.append(fill)
                 fill = "keepLong"
