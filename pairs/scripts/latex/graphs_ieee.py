@@ -18,29 +18,58 @@ from pairs.analysis import (
     aggregate,
     )
 from pairs.formatting import standardize_results
-
+import glob
 # GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
 #%%
 # GIANT RESULT TABLE
+def load_random_scenarios(results_dir):
+    paths = glob.glob(os.path.join(results_dir,'scenario_random*'))
+    results = []
+    for path in paths:
+        if 'parameters' not in path:
+            results.append(load_results(os.path.basename(os.path.normpath(path)), "random", newbase))
+    return results
+
+def produce_trading_ts(rdx, relevant_timeframes):
+    rdx_trading_ts = pd.concat(
+    [
+        rdx.loc[
+            backtest_idx,
+            :,
+            relevant_timeframes[int(int(backtest_idx)/2)][0] : relevant_timeframes[int(int(backtest_idx)/2)][1],
+            :,
+        ]
+        .groupby(level=2)
+        .mean()
+        .fillna(0)
+        for backtest_idx in rdx.index.get_level_values(0).unique(0)
+    ]
+    )
+    rdx_trading_ts["cumProfit"] = rdx_trading_ts["Profit"] + 1
+    rdx_trading_ts["cumProfit"] = rdx_trading_ts["cumProfit"].cumprod()
+    return rdx_trading_ts
+
+def preprocess_rdx(rdx):
+    rdx["Profit"] = rdx["Profit"].astype(np.float64)
+    rdx=rdx.loc[[i for i in rdx.index.levels[0] if i%2 ==0]]
+    return rdx
+
 newbase = paper1_univ.save_path_results
 rdd = load_results("scenario1", "dist", newbase)
 rdc = load_results("scenario1", "coint", newbase)
-rdd["Profit"] = rdd["Profit"].astype(np.float64)
-rdc["Profit"] = rdc["Profit"].astype(np.float64)
-
-rdc=rdc.loc[[i for i in rdc.index.levels[0] if i%2 ==0]]
-rdd=rdd.loc[[i for i in rdd.index.levels[0] if i%2 ==0]]
 
 
-ddd = descriptive_frame(rdd)
-ddc = descriptive_frame(rdc)
-# ddd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
-# ddc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddc.pkl"))
+rdd = preprocess_rdx(rdd)
+rdc = preprocess_rdx(rdc)
+rdrs = load_random_scenarios(newbase)
+rdrs = [preprocess_rdx(rdr) for rdr in rdrs]
+
+# ddd = descriptive_frame(rdd)
+# ddc = descriptive_frame(rdc)
 
 jump_delta = relativedelta(
     months=2, days=0, hours=0
 )  # the daily baseline scenarios have a jump_delta of 1 mth, but we need to have 2mth to make a continuous time series
-earliest_trading_period = infer_periods(rdd.loc[0])["trading"]
 relevant_timeframes = [
     (
         infer_periods(rdd.loc[backtest_idx])["trading"][0],
@@ -48,46 +77,11 @@ relevant_timeframes = [
     )
     for backtest_idx in rdd.index.get_level_values(0).unique(0)
 ]
-# relevant_timeframes[-1] = (
-#     relevant_timeframes[-1][0],
-#     relevant_timeframes[-1][1] + jump_delta,
-# )
 
-rdd_trading_ts = pd.concat(
-    [
-        rdd.loc[
-            backtest_idx,
-            :,
-            relevant_timeframes[int(int(backtest_idx)/2)][0] : relevant_timeframes[int(int(backtest_idx)/2)][1],
-            :,
-        ]
-        .groupby(level=2)
-        .mean()
-        .fillna(0)
-        for backtest_idx in rdd.index.get_level_values(0).unique(0)
-    ]
-)
-rdd_trading_ts["cumProfit"] = rdd_trading_ts["Profit"] + 1
-rdd_trading_ts["cumProfit"] = rdd_trading_ts["cumProfit"].cumprod()
-
-rdc_trading_ts = pd.concat(
-    [
-        rdc.loc[
-            backtest_idx,
-            :,
-            relevant_timeframes[int(int(backtest_idx)/2)][0] : relevant_timeframes[int(int(backtest_idx)/2)][1],
-            :,
-        ]
-        .groupby(level=2)
-        .mean()
-        .fillna(0)
-        for backtest_idx in rdc.index.get_level_values(0).unique(0)
-    ]
-)
-
-rdc_trading_ts["cumProfit"] = rdc_trading_ts["Profit"] + 1
-rdc_trading_ts["cumProfit"] = rdc_trading_ts["cumProfit"].cumprod()
-
+rdd_trading_ts = produce_trading_ts(rdd, relevant_timeframes)
+rdc_trading_ts = produce_trading_ts(rdc, relevant_timeframes)
+rdrs = [produce_trading_ts(rdr, relevant_timeframes) for rdr in rdrs]
+rdr_trading_ts = pd.concat(rdrs).groupby(level=0).mean()
 # feasible = [
 #     "Monthly profit",
 #     "Annual profit",
@@ -128,8 +122,10 @@ btcusd = btcusd.loc[
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
 btcusd["Close"].plot(linewidth=0.5, color="k", ax=ax)
 
-rdd_trading_ts["cumProfit"].plot(linewidth=2, color="k", ax=ax)
-rdc_trading_ts["cumProfit"].plot(linewidth=1, color="k", ax=ax)
+rdd_trading_ts["cumProfit"].plot(linewidth=0.5, color="k", ax=ax)
+# rdc_trading_ts["cumProfit"].plot(linewidth=1, color="k", ax=ax)
+rdr_trading_ts["cumProfit"].plot(linewidth=0.5, color='k', ax=ax)
+
 plt.xlabel("Date")
 plt.ylabel("BTC/USDT")
 plt.legend()
