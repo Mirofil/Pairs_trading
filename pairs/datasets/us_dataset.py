@@ -5,16 +5,6 @@ import pandas as pd
 from tqdm import tqdm
 import datetime
 
-from pairs.config import (
-    NUMOFPROCESSES,
-    data_path,
-    end_date,
-    save,
-    start_date,
-    version,
-    TradingUniverse,
-)
-from pairs.helpers import name_from_path, resample
 from pairs.datasets.base import Dataset
 
 

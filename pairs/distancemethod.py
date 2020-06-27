@@ -11,15 +11,6 @@ from tqdm import tqdm
 
 from pairs.pairs_trading_engine import sliced_norm
 
-# new = []
-# x=newdf['normPrice'].reset_index(level=1)
-# for stock in newdf['normPrice'].index.unique(0):
-#     new.append(pd.DataFrame(pd.Series(x.loc[stock, 'normPrice'].values, index = x.loc[stock, 'Time'].values)).T)
-# interim = pd.concat(new)
-# interim.index = newdf['normPrice'].index.unique(0)
-# np.power(sklearn.metrics.pairwise_distances(interim.drop(interim.columns[[0]], axis=1)), 2)
-
-
 def distance(df: pd.DataFrame, num: int = 5, method="modern", show_progress_bar=True):
     """
     Args:
