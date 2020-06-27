@@ -25,23 +25,31 @@ class TradingUniverse:
         self.root_folder = root_folder
         if save_path_graphs is None and root_folder is not None:
             self.save_path_graphs = os.path.join(root_folder, "graphs")
+        elif save_path_graphs is not None:
+            self.save_path_graphs = save_path_graphs
         else:
             self.save_path_graphs = None
 
         if save_path_tables is None and root_folder is not None:
             self.save_path_tables = os.path.join(root_folder, "tables")
+        elif save_path_tables is not None:
+            self.save_path_tables = save_path_tables
         else:
             self.save_path_tables = None
 
         if save_path_results is None and root_folder is not None:
             self.save_path_results = os.path.join(root_folder, "results")
+        elif save_path_results is not None:
+            self.save_path_results = save_path_results
         else:
             self.save_path_results = None
 
         if data_path is None and root_folder is not None:
             self.data_path = os.path.join(root_folder, "concatenated_price_data")
-        else:
+        elif data_path is not None:
             self.data_path = data_path
+        else:
+            self.data_path = None
 
         self.freq = freq
 
@@ -58,7 +66,7 @@ paper1_univ = TradingUniverse(
     start_date=[2018, 1, 1],
     end_date=[2019, 9, 1],
     volume_cutoff=0.7,
-    root_folder="paper1",
+    root_folder="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1",
     data_path="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWconcatenated_price_data",
     save_path_results = "/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWresults",
     save_path_graphs="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWgraphs",

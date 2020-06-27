@@ -1,4 +1,4 @@
-from binance_custom import DataClient
+from binance_data.client import DataClient
 from multiprocess import freeze_support
 import time
 if __name__ == '__main__':
@@ -16,4 +16,5 @@ if __name__ == '__main__':
        pairs2=pair_list[60:120]
        pairs3=pair_list[120:]
        pair_list=[x for x in pair_list if x not in pairs]
-       store_data = DataClient().kline_data(pairs1,'1m', progress_statements=True, storage = ['csv', 'C:\\Bach\\test'])
+
+       store_data = DataClient().kline_data(['BTCUSDT'],'12h', progress_statements=True, storage = ['csv', '.'])

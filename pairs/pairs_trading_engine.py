@@ -18,7 +18,7 @@ from tqdm import tqdm
 from pairs.config import data_path
 
 
-def pick_range(df, start, end):
+def pick_range(df: pd.DataFrame, start, end):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
     # There is a bug when the end is past the preprocessed length, one index of the level disappears?
 
@@ -120,6 +120,30 @@ def weights_from_signals(df, cost=0):
     ] = 0
 
 
+def resample(df, freq: str ="1D", start=None, fill: bool =True):
+    """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
+    Close prices get last values, Volume gets summed. 
+    Only indexes past start_date are returned to have a common start for all series 
+    (since they got listed at various dates)"""
+    df.index = pd.to_datetime(df.Date)
+    # Close prices get resampled with last values, whereas Volume gets summed
+    if freq is not None:
+        df["Close"] = df["Close"].resample(freq).last()
+        df["Volume"] = df["Volume"] * df["Close"]
+        df = df.resample(freq).agg({"Volume": np.sum})
+    else:
+        df["Volume"] = df["Volume"] * df["Close"]
+    # log returns and normalization
+    df["Close"] = df["Close"]
+    if fill == True:
+        df["Close"] = df["Close"].fillna(method="ffill")
+    df["logClose"] = np.log(df["Close"])
+    df["logReturns"] = (
+        df["logClose"] - df["logClose"].shift(1)
+    ).values
+    df["Price"] = df["logReturns"].cumsum()
+    return df[df.index > pd.to_datetime(start)]
+
 def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar=True):
     """Picks out the viable pairs of the original df (which has all pairs)
     and adds to it the normPrice Spread among others, as well as initially
@@ -157,7 +181,10 @@ def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar
         newdf["1Price"] = df.loc[(pair[0], pairs_index_intersection), "Price"].values
         newdf["2Price"] = df.loc[(pair[1], pairs_index_intersection), "Price"].values
 
-        spreads_interim = -coefs[1] * df.loc[(pair[0], pairs_index_intersection), "Price"]+ df.loc[(pair[1], pairs_index_intersection), "Price"].values
+        spreads_interim = (
+            -coefs[1] * df.loc[(pair[0], pairs_index_intersection), "Price"]
+            + df.loc[(pair[1], pairs_index_intersection), "Price"].values
+        )
         newdf["Spread"] = spreads_interim.values
         newdf["SpreadBeta"] = coefs[1]
         newdf["normSpread"] = (
@@ -235,7 +262,6 @@ def calculate_profit(df, cost=0):
     for name, group in df.groupby(level=0):
         returns1 = group["1Price"] - group["1Price"].shift(1).values
         returns2 = group["2Price"] - group["2Price"].shift(1).values
-        temp = returns1 + returns2
         df.loc[name, "Profit"] = (
             df.loc[name, "1Weights"].shift(1) * returns1
             + df.loc[name, "2Weights"].shift(1) * returns2

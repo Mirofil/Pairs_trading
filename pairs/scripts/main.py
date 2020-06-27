@@ -143,7 +143,7 @@ print("Cointegrations were found in: " + str(end - start))
 #%%
 short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
 start = datetime.datetime.now()
-coint_spreads = coint_spread(
+coint_spreads = calculate_spreads(
     short_preprocessed,
     [item[0] for item in k],
     timeframe=formation,

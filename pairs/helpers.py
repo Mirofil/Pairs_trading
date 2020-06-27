@@ -39,31 +39,6 @@ def path_from_name(name: str, data_path=data_path):
     path = os.path.join(data_path, name + ".csv")
     return name
 
-
-def resample(df, freq: str ="1D", start=start_date, fill: bool =True):
-    """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
-    Close prices get last values, Volume gets summed. 
-    Only indexes past start_date are returned to have a common start for all series 
-    (since they got listed at various dates)"""
-    df.index = pd.to_datetime(df.Date)
-    # Close prices get resampled with last values, whereas Volume gets summed
-    if freq is not None:
-        df["Close"] = df["Close"].resample(freq).last()
-        df["Volume"] = df["Volume"] * df["Close"]
-        df = df.resample(freq).agg({"Volume": np.sum})
-    else:
-        df["Volume"] = df["Volume"] * df["Close"]
-    # log returns and normalization
-    df["Close"] = df["Close"]
-    if fill == True:
-        df["Close"] = df["Close"].fillna(method="ffill")
-    df["logClose"] = np.log(df["Close"])
-    df["logReturns"] = (
-        df["logClose"] - df["logClose"].shift(1)
-    ).values
-    df["Price"] = df["logReturns"].cumsum()
-    return df[df.index > pd.to_datetime(start)]
-
 def latexsave(df, file, params=[]):
     with open(file + ".tex", "w") as tf:
         tf.write(df.to_latex(*params, escape=False))
