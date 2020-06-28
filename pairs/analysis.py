@@ -73,6 +73,7 @@ def infer_periods(single_backtest_df: pd.DataFrame):
 
 def descriptive_stats(
     single_backtest_df: pd.DataFrame,
+    trading_timeframe=None,
     freq: str = "daily",
     risk_free: int = 0.02,
     nonzero: bool = False,

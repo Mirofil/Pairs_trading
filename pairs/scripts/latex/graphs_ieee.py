@@ -57,10 +57,16 @@ def produce_trading_ts(
     )
     if keep_ts_continuity is True:
         ddx = descriptive_frame(rdx)
-        multiplicative_factors = (
-            ddx.groupby(level=0).mean().iloc[1:].cumprod()["Cumulative profit"].tolist()
-        )
-        multiplicative_factors.append(multiplicative_factors[-1])
+        # multiplicative_factors = (
+        #     ddx.groupby(level=0).mean().iloc[1:].cumprod()["Cumulative profit"].tolist()
+        # )
+        multiplicative_factors = pd.Series([
+            rdx_trading_ts.loc[
+                relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
+            ]['cumProfit']
+            for backtest_idx in rdx.index.get_level_values(0).unique(0)[0:-1]
+        ]).cumprod().to_list()
+        # multiplicative_factors.append(multiplicative_factors[-1])
         # print(multiplicative_factors)
         for backtest_idx in rdx.index.get_level_values(0).unique(0)[1:]:
             len_of_linspace = len(
@@ -75,19 +81,35 @@ def produce_trading_ts(
             rdx_trading_ts.loc[
                 relevant_timeframes[int(int(backtest_idx) / take_every_nth)][
                     0
-                ] : relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
-                + relativedelta(days=-1),
+                ]+relativedelta(days=1) : relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
+                + relativedelta(days=0),
                 "cumProfit",
-            ] *= np.linspace(multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)], multiplicative_factors[int(int(backtest_idx) / take_every_nth)], num = len_of_linspace)
+            ] *= multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)]
+            
+            rdx_trading_ts.loc[
+            relevant_timeframes[int(int(backtest_idx) / take_every_nth)][
+                0
+            ]+relativedelta(days=1) : relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
+            + relativedelta(days=0),
+            "multFactor",
+            ] = multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)]
+        #   np.linspace(
+        #         multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)],
+        #         multiplicative_factors[int(int(backtest_idx) / take_every_nth)],
+        #         num=len_of_linspace,
+        #     )
 
-    #    rdx_trading_ts["cumProfit"] = rdx_trading_ts["Profit"] + 1
-    #    rdx_trading_ts["cumProfit"] = rdx_trading_ts["cumProfit"].cumprod()
     return rdx_trading_ts
 
 
 def preprocess_rdx(rdx, take_every_nth=1):
     rdx["Profit"] = rdx["Profit"].astype(np.float64)
     rdx["cumProfit"] = rdx["cumProfit"].astype(np.float64)
+    for backtest_idx in rdx.index.get_level_values(0).unique():
+        for pair in rdx.loc[backtest_idx].index.get_level_values(0).unique():
+            rdx.loc[(backtest_idx, pair), "cumProfit"] = (
+                rdx.loc[(backtest_idx, pair), "cumProfit"].fillna(method="ffill").values
+            )
     rdx = rdx.loc[[i for i in rdx.index.levels[0] if i % take_every_nth == 0]]
     return rdx
 
@@ -103,11 +125,6 @@ def generate_timeframes(rdx, jump_delta=relativedelta(months=2, days=0, hours=0)
         for backtest_idx in rdx.index.get_level_values(0).unique(0)
     ]
     return relevant_timeframes
-
-
-# for backtest_idx in rdc.index.get_level_values(0).unique(0):
-#     for pair in rdc.loc[backtest_idx].index.get_level_values(0).unique(0):
-#         rdc.loc[(backtest_idx, pair), "cumTotalProfit"] = rdc.loc[(backtest_idx,pair),"Profit"].cumsum().values
 
 newbase = paper1_univ.save_path_results
 rdd = load_results("scenario1", "dist", newbase)
@@ -178,10 +195,14 @@ btcusd = btcusd.loc[
     relevant_timeframes[0][0] : relevant_timeframes[-1][1]
 ]  # need to match up with the trading periods from our strategy
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
-btcusd["Close"].plot(linewidth=1, color="k", ax=ax)
+btcusd = btcusd.rename({'Close':'BTCUSDT'}, axis=1)
+btcusd["BTCUSDT"].plot(linewidth=1, ax=ax)
 
-rdd_trading_ts["cumProfit"].plot(linewidth=0.5, color="b", ax=ax)
-rdc_trading_ts["cumProfit"].plot(linewidth=0.5, color="k", ax=ax)
+
+rdd_trading_ts = rdd_trading_ts.rename({'cumProfit':'Dist. profit'}, axis=1)
+rdc_trading_ts = rdc_trading_ts.rename({'cumProfit':'Coint. profit'}, axis=1)
+rdd_trading_ts["Dist. profit"].plot(linewidth=1, ax=ax)
+rdc_trading_ts["Coint. profit"].plot(linewidth=1, ax=ax)
 # rdr_trading_ts["cumProfit"].plot(linewidth=0.5, color="r", ax=ax)
 
 plt.xlabel("Date")
