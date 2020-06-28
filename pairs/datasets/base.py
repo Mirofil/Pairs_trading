@@ -5,19 +5,13 @@ import pandas as pd
 from tqdm import tqdm
 import datetime
 
-from pairs.config import (
-    NUMOFPROCESSES,
-    data_path,
-    end_date,
-    save,
-    start_date,
-    version,
-    TradingUniverse,
-)
-from pairs.helpers import name_from_path, resample
+from pairs.config import TradingUniverse
+from pairs.helpers import name_from_path
 from abc import ABC
 import itertools
 import operator
+from pairs.pairs_trading_engine import resample
+
 
 def most_common(L):
     if len(L) == 0:
@@ -36,14 +30,23 @@ def most_common(L):
             min_index = min(min_index, where)
         # print 'item %r, count %r, minind %r' % (item, count, min_index)
         return count, -min_index
+
     # pick the highest-count/earliest item
     return max(groups, key=_auxfun)[0]
+
 
 class Dataset(ABC):
     def __init__(self):
         pass
 
-    def preprocess(self, freq=None, start_date=None, end_date=None, first_n: int = 0, show_progress_bar = False):
+    def preprocess(
+        self,
+        freq=None,
+        start_date=None,
+        end_date=None,
+        first_n: int = 0,
+        show_progress_bar=False,
+    ):
         """Finishes the preprocessing based on prefiltered paths. We filter out pairs that got delisted early
         (they need to go at least as far as end_date). Then all the eligible time series for pairs formation analysis
         are concated into one big DF with a multiIndex (pair, time).
@@ -58,9 +61,15 @@ class Dataset(ABC):
 
         prefiltered_paths = prefiltered_paths[first_n:]["0"]
         preprocessed = []
-        for i in tqdm(range(len(prefiltered_paths)), desc="Preprocessing files", disable = not show_progress_bar):
+        for i in tqdm(
+            range(len(prefiltered_paths)),
+            desc="Preprocessing files",
+            disable=not show_progress_bar,
+        ):
             stock_price = pd.read_csv(prefiltered_paths[i])
-            stock_price.rename({"Opened": "Date"}, axis="columns", inplace=True, errors='ignore')
+            stock_price.rename(
+                {"Opened": "Date"}, axis="columns", inplace=True, errors="ignore"
+            )
             stock_price = stock_price.sort_index()
             stock_price = resample(stock_price, freq=None, start=start_date)
             stock_price = stock_price.sort_index()
@@ -72,15 +81,21 @@ class Dataset(ABC):
                     [[name_from_path(prefiltered_paths[i])], list(newdf.index.values)],
                     names=["Pair", "Time"],
                 )
-                newdf = newdf.drop(labels="Date", axis=1, errors='ignore')
+                newdf = newdf.drop(labels="Date", axis=1, errors="ignore")
                 preprocessed.append(newdf.set_index(multiindex))
         all_time_series = pd.concat(preprocessed)
 
         self.preprocessed_paths = all_time_series
         return all_time_series
 
-
-    def prefilter(self, paths=None, start_date=None, end_date=None, drop_any_na=True, show_progress_bar=False):
+    def prefilter(
+        self,
+        paths=None,
+        start_date=None,
+        end_date=None,
+        drop_any_na=True,
+        show_progress_bar=False,
+    ):
         """ Prefilters the time series so that we have only moderately old pairs (listed past start_date_date)
         and uses a volume percentile cutoff. The output is in array (pair, its volume)
         
@@ -108,18 +123,20 @@ class Dataset(ABC):
         for i in tqdm(
             range(len(paths)),
             desc="Prefiltering pairs (based on volume and start_date/end_date of trading)",
-            disable = not show_progress_bar
+            disable=not show_progress_bar,
         ):
             # print(f"Processing {paths[i]} at {i}")
             df = pd.read_csv(paths[i])
             df = df.set_index("Date", drop=False)
 
             if drop_any_na is True:
-                if len(df.loc[idx[str(start_date) : str(end_date)]].dropna()) < len(df.loc[idx[str(start_date) : str(end_date)]]):
+                if len(df.loc[idx[str(start_date) : str(end_date)]].dropna()) < len(
+                    df.loc[idx[str(start_date) : str(end_date)]]
+                ):
                     continue
-                if any(df.loc[idx[str(start_date) : str(end_date)]]["Volume"]==0):
+                if any(df.loc[idx[str(start_date) : str(end_date)]]["Volume"] == 0):
                     continue
-            df.rename({"Opened": "Date"}, axis="columns", inplace=True, errors='ignore')
+            df.rename({"Opened": "Date"}, axis="columns", inplace=True, errors="ignore")
 
             # filters out pairs that got listed past start_date_date
             if (pd.to_datetime(df.iloc[0]["Date"]) < pd.to_datetime(start_date)) and (
@@ -136,14 +153,20 @@ class Dataset(ABC):
                         ).sum(),
                     ]
                 )
-                lens_of_admissible.append(len(df.loc[idx[str(start_date) : str(end_date)]]))
+                lens_of_admissible.append(
+                    len(df.loc[idx[str(start_date) : str(end_date)]])
+                )
         if most_common(lens_of_admissible) != False:
             most_common_len = most_common(lens_of_admissible)
-            indexes_to_remove=[]
-            for idx,ts in enumerate(admissible):
+            indexes_to_remove = []
+            for idx, ts in enumerate(admissible):
                 if lens_of_admissible[idx] != most_common_len:
                     indexes_to_remove.append(idx)
-            admissible = [admissible[i] for i in range(len(admissible)) if i not in indexes_to_remove]
+            admissible = [
+                admissible[i]
+                for i in range(len(admissible))
+                if i not in indexes_to_remove
+            ]
 
         # sort by Volume and pick upper percentile
         admissible.sort(key=lambda x: x[1])

@@ -5,17 +5,17 @@ import datetime
 from dateutil.relativedelta import relativedelta
 from pairs.distancemethod import distance
 from pairs.helpers import data_path
-# from pairs.helpers import prefilter, preprocess
 from pairs.cointmethod import cointegration, find_integrated
 from pairs.config import TradingUniverse
 from pairs.simulation import simulate
 from pairs.simulations_database import *
 from pairs.pairs_trading_engine import (calculate_profit, pick_range,
                                   propagate_weights, signals, sliced_norm,
-                                  weights_from_signals, calculate_spreads)
+                                  weights_from_signals, calculate_spreads, resample)
 from pairs.datasets.us_dataset import USDataset
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.analysis import descriptive_stats
+from pairs.randommethod import random_pairs
 
 univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/', tracking_uri="http://0.0.0.0:5000",
         start_date=[1990, 1, 1],
@@ -143,7 +143,7 @@ print("Cointegrations were found in: " + str(end - start))
 #%%
 short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
 start = datetime.datetime.now()
-coint_spreads = coint_spread(
+coint_spreads = calculate_spreads(
     short_preprocessed,
     [item[0] for item in k],
     timeframe=formation,
@@ -194,12 +194,15 @@ print("Profit calculation was done in: " + str(end - start))
 start = datetime.datetime.now()
 head = pick_range(preprocessed, formation[0], formation[1])
 distances = distance(head, num=20, method='modern')
+randoms = random_pairs(head, num=20, method='modern')
 end = datetime.datetime.now()
 print("Distances were found in: " + str(end - start))
 #%%
 start = datetime.datetime.now()
 short_preprocessed = pick_range(preprocessed, formation[0], trading[1])
-spreads = calculate_spreads(short_preprocessed, distances['viable_pairs'], formation)
+# spreads = calculate_spreads(short_preprocessed, distances['viable_pairs'], formation)
+spreads = calculate_spreads(short_preprocessed, randoms, formation)
+
 end = datetime.datetime.now()
 print("Distance spreads were found in: " + str(end - start))
 # this is some technical detail needed later?

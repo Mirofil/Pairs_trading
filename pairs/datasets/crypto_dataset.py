@@ -5,8 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 import datetime
 
-from pairs.config import (TradingUniverse)
-from pairs.helpers import name_from_path, resample
+from pairs.config import TradingUniverse
 from pairs.datasets.base import Dataset
 
 class CryptoDataset (Dataset):
