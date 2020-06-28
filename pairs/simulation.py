@@ -106,11 +106,6 @@ def simulate(
     ):
         total_iters = total_iters + 1 
         artifacts = {}
-        if i % 2 == 0:
-            try:
-                ray.tune.track.log(iteration=str(i))
-            except:
-                pass
         formation = (
             start_date + i * jump_delta,
             start_date + formation_delta + i * jump_delta,
@@ -311,16 +306,8 @@ def simulate(
         trading_period_days=trading_period_days,
         multiindex_from_product_cols=multiindex_from_product_cols,
     )
-    # NOTE there should be only one column - something like Daily/Dist
-    # for col in aggregated.columns:
-    #     # ray.tune.track.log(name=col, **aggregated[col].to_dict())
-    #     mlflow.log_metrics(aggregated[col].to_dict())
-    # mlflow.log_params(params)
-    # mlflow.log_param("UNIQUE_ID", UNIQUE_ID + "_MASTER")
 
-    # NOTE this can be used later to process the resutls dataframe from MLflow
-
-    return aggregated
+    return {"backtests":backtests, 'aggregated':aggregated}
 
 def simulate_mlflow(
     params,
@@ -594,7 +581,10 @@ def simulate_mlflow(
             #     artifact_df.to_parquet(f"{artifact_name}.parquet")
             #     mlflow.log_artifact(f"{artifact_name}.parquet")
             #     os.remove(f"{artifact_name}.parquet")
-
+            try:
+                ray.tune.track.log(**logging_metrics[i][0], **logging_params[i], iteration=str(i))
+            except:
+                pass
             if trading[1] == end_date:
                 break
         # except:

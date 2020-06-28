@@ -24,10 +24,11 @@ import ray
 import mlflow
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.datasets.us_dataset import USDataset
+from pairs.analysis import descriptive_frame, descriptive_stats
 
 univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/', tracking_uri="http://0.0.0.0:5000",
-        start_date=[1996, 1, 1],
-        end_date=[2020, 1, 1],show_progress_bar=True)
+        start_date=[1990, 1, 1],
+        end_date=[1992, 1, 1],show_progress_bar=True)
 
 config=generate_scenario(
         freq="1D",
@@ -45,7 +46,7 @@ config=generate_scenario(
         trading_univ=univ,
         dataset=USDataset(config=univ)
     )
-#%%
+
 simulate(config)
 
 if __name__ == "__main__":
