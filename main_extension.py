@@ -80,7 +80,7 @@ simulate(scenario8_coint, num_of_processes=3)
 simulate(scenario7_coint_nolag, num_of_processes=3)
 
 #RANDOMS
-for i in range(10,50):
+for i in range(0,50):
     simulate(scenario_random, random_idx=i)
 
 #%%

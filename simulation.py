@@ -89,9 +89,9 @@ def simulate(params, num_of_processes = num_of_processes, random_idx=None):
 
         if 'random' in methods:
             head = pick_range(y, formation[0], formation[1])
-            distances = distance(head, num = dist_num)
+            distances = random_pairs(head, num = dist_num)
             short_y=pick_range(y, formation[0], trading[1])
-            spreads=distance_spread(short_y,distances[2], formation)
+            spreads=distance_spread(short_y,distances, formation)
             spreads.sort_index(inplace=True)
             dist_signal=signals(spreads, timeframe=trading, formation=formation,lag = lag, threshold = threshold, stoploss=stoploss, num_of_processes=num_of_processes)
             weights_from_signals(dist_signal, cost=txcost)
