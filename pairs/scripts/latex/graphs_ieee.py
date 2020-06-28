@@ -196,12 +196,12 @@ btcusd = btcusd.loc[
 ]  # need to match up with the trading periods from our strategy
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
 btcusd = btcusd.rename({'Close':'BTCUSDT'}, axis=1)
-btcusd["BTCUSDT"].plot(linewidth=1, ax=ax)
+btcusd["BTCUSDT"].plot(linewidth=1, color='k', ax=ax)
 
 
 rdd_trading_ts = rdd_trading_ts.rename({'cumProfit':'Dist. profit'}, axis=1)
 rdc_trading_ts = rdc_trading_ts.rename({'cumProfit':'Coint. profit'}, axis=1)
-rdd_trading_ts["Dist. profit"].plot(linewidth=1, ax=ax)
+rdd_trading_ts["Dist. profit"].plot(linewidth=1, color='tab:red', ax=ax)
 rdc_trading_ts["Coint. profit"].plot(linewidth=1, ax=ax)
 # rdr_trading_ts["cumProfit"].plot(linewidth=0.5, color="r", ax=ax)
 
@@ -210,6 +210,6 @@ plt.ylabel("BTC/USDT")
 plt.legend()
 plt.tight_layout()
 
-plt.savefig(os.path.join(paper1_univ.save_path_graphs, "btcprice.png"))
+plt.savefig(os.path.join(paper1_univ.save_path_graphs, "btcprice.png"), dpi=300)
 
 # %%
