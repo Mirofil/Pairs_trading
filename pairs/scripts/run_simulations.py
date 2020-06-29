@@ -21,26 +21,26 @@ import mlflow
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.datasets.us_dataset import USDataset
 
-univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
+# univ = TradingUniverse(data_path='/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/hist/amex/')
 
-config=generate_scenario(
-        freq="1D",
-        lag=1,
-        txcost=[0,0.003],
-        training_delta=[2, 0, 0],
-        formation_delta=[4, 0, 0],
-        jump=[1, 0, 0],
-        method="dist",
-        dist_num=20,
-        threshold=2,
-        stoploss=100,
-        redo_prefiltered=True,
-        redo_preprocessed=True,
-        truncate=True,
-        trading_univ=univ,
-        dataset=USDataset(config=univ)
-    )
-simulate(config)
+# config=generate_scenario(
+#         freq="1D",
+#         lag=1,
+#         txcost=[0,0.003],
+#         training_delta=[2, 0, 0],
+#         formation_delta=[4, 0, 0],
+#         jump=[1, 0, 0],
+#         method="dist",
+#         dist_num=20,
+#         threshold=2,
+#         stoploss=100,
+#         redo_prefiltered=True,
+#         redo_preprocessed=True,
+#         truncate=True,
+#         trading_univ=univ,
+#         dataset=USDataset(config=univ)
+#     )
+# simulate(config)
 
 
 
