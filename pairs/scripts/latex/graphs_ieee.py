@@ -21,8 +21,8 @@ import glob
 from tqdm import tqdm
 
 # GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
-def load_random_scenarios(results_dir):
-    paths = glob.glob(os.path.join(results_dir, "scenario_random*"))
+def load_random_scenarios(results_dir, prefix='scenario_randomd'):
+    paths = glob.glob(os.path.join(results_dir, prefix+"*"))
     results = []
     for path in paths:
         if "parameters" not in path:
@@ -152,7 +152,7 @@ rdd_trading_ts = produce_trading_ts(
 rdc_trading_ts = produce_trading_ts(
     rdc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
 )
-# rdrs = [produce_trading_ts(rdr, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True) for rdr in tqdm(rdrs)]
+rdrs = [produce_trading_ts(rdr, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True) for rdr in tqdm(rdrs)]
 rdr_trading_ts = pd.concat(rdrs).groupby(level=0).mean()
 
 # rdd_trading_ts = rdd_trading_ts.groupby(level=0).mean()
