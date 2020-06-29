@@ -84,10 +84,10 @@ simulate(scenario7_coint_nolag, num_of_processes=3)
 for i in range(0,50):
     simulate(scenario_random, random_idx=i)
 
-for i in tqdm(range(0,5)):
+for i in tqdm(range(5,10)):
     simulate(scenario_randomh, random_idx=i)
 
-for i in tqdm(range(0,5)):
+for i in tqdm(range(5,10)):
     simulate(scenario_randomt, random_idx=i)
 
 #%%
