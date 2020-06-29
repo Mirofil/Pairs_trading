@@ -7,12 +7,6 @@ from pairs.distancemethod import distance
 from pairs.helpers import data_path
 from pairs.cointmethod import cointegration, find_integrated
 from pairs.config import (
-    NUMOFPROCESSES,
-    data_path,
-    end_date,
-    save,
-    start_date,
-    version,
     TradingUniverse,
 )
 from pairs.simulation import simulate
@@ -30,33 +24,6 @@ import ray
 import mlflow
 from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.datasets.us_dataset import USDataset
-# GUNICORN_CMD_ARGS="--timeout 600 --workers 7"
-# # mlflow server \
-# #     --backend-store-uri /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/mlruns \
-# #     --default-artifact-root /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/mlruns \
-# #     --host 0.0.0.0
-
-# univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/nyse/', tracking_uri="http://0.0.0.0:5000",
-#         start_date=[1990, 1, 1],
-#         end_date=[2020, 1, 1],)
-
-# config=generate_scenario(
-#         freq="1D",
-#         lag=1,
-#         txcost=[0.003],
-#         pairs_deltas={'formation_delta':[6,0,0], 'training_delta':[3,0,0]},
-#         jump=[1, 0, 0],
-#         method="dist",
-#         dist_num=20,
-#         threshold=2,
-#         stoploss=100,
-#         redo_prefiltered=True,
-#         redo_preprocessed=True,
-#         truncate=True,
-#         trading_univ=univ,
-#         dataset=USDataset(config=univ)
-#     )
-# simulate(config)
 
 
 if __name__ == "__main__":
@@ -74,7 +41,7 @@ if __name__ == "__main__":
         start_date=[1990, 1, 1],
         end_date=[2020, 1, 1],
         volume_cutoff=[0.1, 1],
-        name="nyse_dist_big7",
+        name="nyse_dist_big_nomlflow",
     )
 
     analysis = tune.run(
