@@ -19,6 +19,7 @@ from cointmethod import *
 from config import *
 from simulation import *
 from simulations_database import *
+from tqdm import tqdm
 pd.options.mode.chained_assignment = None
 formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,7]))
 trading = (formation[1], formation[1]+relativedelta(days=3))
@@ -82,6 +83,12 @@ simulate(scenario7_coint_nolag, num_of_processes=3)
 #RANDOMS
 for i in range(0,50):
     simulate(scenario_random, random_idx=i)
+
+for i in tqdm(range(0,5)):
+    simulate(scenario_randomh, random_idx=i)
+
+for i in tqdm(range(0,5)):
+    simulate(scenario_randomt, random_idx=i)
 
 #%%
 #COINTEGRATION TESTING

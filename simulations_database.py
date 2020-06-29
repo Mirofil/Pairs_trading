@@ -24,6 +24,8 @@ scenario1_nolag={"freq":"1D",'lag':0, 'txcost':0.003, 'training_delta':[2,0,0], 
 scenario2_nolag={"freq":"1D",'lag':0, 'txcost':0.000, 'training_delta':[2,0,0], 'cutoff':0.7, 'formation_delta':[4,0,0], 'start':starting_date, 'end':ending_date, 'jump':[1,0,0], 'methods':['dist', 'coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario2_nolag'}
 
 #HOURLY
+scenario_randomh={"freq":"1H",'lag':1, 'txcost':0.003, 'training_delta':[0,10,0], 'cutoff':0.7, 'formation_delta':[0,20,0], 'start':starting_date, 'end':ending_date, 'jump':[0,10,0], 'methods':['random'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario_randomh'}
+
 scenario3={"freq":"1H",'lag':1, 'txcost':0.003, 'training_delta':[0,10,0], 'cutoff':0.7, 'formation_delta':[0,20,0], 'start':starting_date, 'end':ending_date, 'jump':[0,10,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario3'}
 scenario4={"freq":"1H",'lag':1, 'txcost':0.000, 'training_delta':[0,10,0], 'cutoff':0.7, 'formation_delta':[0,20,0], 'start':starting_date, 'end':ending_date, 'jump':[0,10,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario4'}
 #changed cutoff
@@ -56,6 +58,9 @@ scenario5_nolag={"freq":"1T",'lag':0, 'txcost':0.003, 'training_delta':[0,1,0], 
 
 
 #5MINUTE
+scenario_randomt={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['random'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario_randomt"}
+
+
 scenario7={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7"}
 scenario8={"freq":"5T",'lag':1, 'txcost':0.000, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario8'}
 scenario7_coint={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7"}
