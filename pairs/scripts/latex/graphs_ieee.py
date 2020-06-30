@@ -195,18 +195,20 @@ btcusd = btcusd.loc[
     relevant_timeframes[0][0] : relevant_timeframes[-1][1]
 ]  # need to match up with the trading periods from our strategy
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
-btcusd = btcusd.rename({'Close':'BTCUSDT'}, axis=1)
-btcusd["BTCUSDT"].plot(linewidth=1, color='k', ax=ax)
+btcusd = btcusd.rename({'Close':'Buy&Hold (BTC)'}, axis=1)
+btcusd["Buy&Hold (BTC)"].plot(linewidth=1, color='k', ax=ax)
 
 
-rdd_trading_ts = rdd_trading_ts.rename({'cumProfit':'Dist. profit'}, axis=1)
-rdc_trading_ts = rdc_trading_ts.rename({'cumProfit':'Coint. profit'}, axis=1)
-rdd_trading_ts["Dist. profit"].plot(linewidth=1, color='tab:red', ax=ax)
-rdc_trading_ts["Coint. profit"].plot(linewidth=1, ax=ax)
-# rdr_trading_ts["cumProfit"].plot(linewidth=0.5, color="r", ax=ax)
+rdd_trading_ts = rdd_trading_ts.rename({'cumProfit':'Distance'}, axis=1)
+rdc_trading_ts = rdc_trading_ts.rename({'cumProfit':'Cointegration'}, axis=1)
+rdr_trading_ts = rdr_trading_ts.rename({'cumProfit':'Random'}, axis=1)
+
+rdd_trading_ts["Distance"].plot(linewidth=0.5, color='tab:red', ax=ax)
+rdc_trading_ts["Cointegration"].plot(linewidth=0.5, color='purple', ax=ax)
+rdr_trading_ts["Random"].plot(linewidth=0.5, color="mediumblue", ax=ax)
 
 plt.xlabel("Date")
-plt.ylabel("BTC/USDT")
+plt.ylabel("Profit (as % of initial)")
 plt.legend()
 plt.tight_layout()
 
