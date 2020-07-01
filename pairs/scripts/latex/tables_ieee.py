@@ -22,159 +22,157 @@ from tqdm import tqdm
 import pickle
 from pairs.formatting import standardize_results, beautify
 from pairs.helpers import latexsave
+from pairs.scripts.latex.helpers import *
+from pairs.formatting import beautify, standardize_results
+
+# BASELINE BENCHMARK DRESULTS TABLE
+newbase = paper1_univ.save_path_results
+rdd = load_results("scenario1", "dist", newbase)
+rdc = load_results("scenario1", "coint", newbase)
+rhd = load_results("scenario3", "dist", newbase)
+rhc = load_results("scenario3", "coint", newbase)
+
+rtd = load_results("scenario7", "dist", newbase)
+rtc = load_results("scenario7", "coint", newbase)
+
+rdrs = load_random_scenarios(newbase, prefix='scenario_randomd')
+rhrs = load_random_scenarios(newbase, prefix='scenario_randomh')
+rtrs = load_random_scenarios(newbase, prefix='scenario_randomt')
+
+nth = 2
+
+#NOTE TAKE CARE IF YOU WANT TO LOAD PREDEFINED rdrs, .. Here we should take every nth to form the timeseries but in the big results table, we want every backtest
+rdd = preprocess_rdx(rdd, take_every_nth=2, should_ffill=False)
+rdc = preprocess_rdx(rdc, take_every_nth=2,should_ffill=False)
+rhd = preprocess_rdx(rhd, take_every_nth=1,should_ffill=False)
+rhc = preprocess_rdx(rhc, take_every_nth=1,should_ffill=False)
+rtd = preprocess_rdx(rtd, take_every_nth=1,should_ffill=False)
+rtc = preprocess_rdx(rtc, take_every_nth=1,should_ffill=False)
+rdrs = [preprocess_rdx(rdr, take_every_nth=2,should_ffill=False) for rdr in tqdm(rdrs)]
+rhrs = [preprocess_rdx(rhr, take_every_nth=1,should_ffill=False) for rhr in tqdm(rhrs)]
+rtrs = [preprocess_rdx(rtr, take_every_nth=nth,should_ffill=False) for rtr in tqdm(rtrs)]
+
+ddd = descriptive_frame(rdd)
+ddc = descriptive_frame(rdc)
+dhd = descriptive_frame(rhd)
+dhc = descriptive_frame(rhc)
+dtd = descriptive_frame(rtd)
+dtc = descriptive_frame(rtc)
+
+relevant_timeframes = generate_timeframes(
+    rdd, jump_delta=relativedelta(months=2, days=0, hours=0)
+)
+
+relevant_timeframes_h = generate_timeframes(rhd, jump_delta=relativedelta(months=0, days=10, hours=0))
+relevant_timeframes_t = generate_timeframes(rtd, jump_delta=relativedelta(months=0, days=6, hours=0))
+
+rdd_trading_ts = produce_trading_ts(
+    rdd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
+
+rdc_trading_ts = produce_trading_ts(
+    rdc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
+rhd_trading_ts = produce_trading_ts(
+    rhd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
+rhc_trading_ts = produce_trading_ts(
+    rhc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
+rtd_trading_ts = produce_trading_ts(
+    rtd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
+rtc_trading_ts = produce_trading_ts(
+    rtc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+)
 
 
-def load_random_scenarios(results_dir, prefix="scenario_randomd"):
-    paths = glob.glob(os.path.join(results_dir, prefix + "*"))
-    results = []
-    for path in paths:
-        if "parameters" not in path:
-            results.append(
-                load_results(
-                    os.path.basename(os.path.normpath(path)), "random", newbase
-                )
-            )
-    return results
-
-
-def produce_trading_ts(
-    rdx, relevant_timeframes, take_every_nth=1, keep_ts_continuity=True
-):
-
-    rdx_trading_ts = pd.concat(
-        [
-            rdx.loc[
-                backtest_idx,
-                :,
-                relevant_timeframes[int(int(backtest_idx) / take_every_nth)][
-                    0
-                ] : relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1],
-                :,
-            ]
-            .dropna(subset=["cumProfit"])
-            .groupby(level=2)
-            .mean()
-            .fillna(0)
-            for backtest_idx in rdx.index.get_level_values(0).unique(0)
-        ]
+rdrs = [
+    produce_trading_ts(
+        rdr, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
     )
-    if keep_ts_continuity is True:
-        ddx = descriptive_frame(rdx)
-        # multiplicative_factors = (
-        #     ddx.groupby(level=0).mean().iloc[1:].cumprod()["Cumulative profit"].tolist()
-        # )
-        multiplicative_factors = (
-            pd.Series(
-                [
-                    rdx_trading_ts.loc[
-                        relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
-                    ]["cumProfit"]
-                    for backtest_idx in rdx.index.get_level_values(0).unique(0)[0:-1]
-                ]
-            )
-            .cumprod()
-            .to_list()
-        )
-        # multiplicative_factors.append(multiplicative_factors[-1])
-        # print(multiplicative_factors)
-        for backtest_idx in rdx.index.get_level_values(0).unique(0)[1:]:
-            len_of_linspace = len(
-                rdx_trading_ts.loc[
-                    relevant_timeframes[int(int(backtest_idx) / take_every_nth)][
-                        0
-                    ] : relevant_timeframes[int(int(backtest_idx) / take_every_nth)][1]
-                    + relativedelta(days=-1),
-                    "cumProfit",
-                ]
-            )
-            rdx_trading_ts.loc[
-                relevant_timeframes[int(int(backtest_idx) / take_every_nth)][0]
-                + relativedelta(days=1) : relevant_timeframes[
-                    int(int(backtest_idx) / take_every_nth)
-                ][1]
-                + relativedelta(days=0),
-                "cumProfit",
-            ] *= multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)]
-
-            rdx_trading_ts.loc[
-                relevant_timeframes[int(int(backtest_idx) / take_every_nth)][0]
-                + relativedelta(days=1) : relevant_timeframes[
-                    int(int(backtest_idx) / take_every_nth)
-                ][1]
-                + relativedelta(days=0),
-                "multFactor",
-            ] = multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)]
-        #   np.linspace(
-        #         multiplicative_factors[int(int(backtest_idx) / take_every_nth - 1)],
-        #         multiplicative_factors[int(int(backtest_idx) / take_every_nth)],
-        #         num=len_of_linspace,
-        #     )
-
-    return rdx_trading_ts
+    for rdr in tqdm(rdrs)
+]
 
 
-def preprocess_rdx(rdx, take_every_nth=1, should_ffill=True):
-    rdx["Profit"] = rdx["Profit"].astype(np.float64)
-    rdx["cumProfit"] = rdx["cumProfit"].astype(np.float64)
-    # NOTE I THINK THIS PART SHOULD ONLY BE NEEDED IN THE GRAPH VERSION? ESP SINCE IT WASNT INCLUDED IN THE ORIGINAL GRAPHS
-    if should_ffill:
-        for backtest_idx in rdx.index.get_level_values(0).unique():
-            for pair in rdx.loc[backtest_idx].index.get_level_values(0).unique():
-                rdx.loc[(backtest_idx, pair), "cumProfit"] = (
-                    rdx.loc[(backtest_idx, pair), "cumProfit"]
-                    .fillna(method="ffill")
-                    .values
-                )
-    rdx = rdx.loc[[i for i in rdx.index.levels[0] if i % take_every_nth == 0]]
-    return rdx
+
+rdr_trading_ts = pd.concat(rdrs).groupby(level=0).mean()
 
 
-def generate_timeframes(rdx, jump_delta=relativedelta(months=2, days=0, hours=0)):
-    # We must set up jump_delta depending on how we want to overlap the subsequent backtests. months=2 gives you as much overlap and hopefully as accurate results as possible.
-    # If there is overlap, it will get averaged out later
-    relevant_timeframes = [
-        (
-            infer_periods(rdd.loc[backtest_idx])["trading"][0],
-            infer_periods(rdd.loc[backtest_idx])["trading"][0] + jump_delta,
-        )
-        for backtest_idx in rdx.index.get_level_values(0).unique(0)
-    ]
-    return relevant_timeframes
 
 
-def prepare_random_scenarios(rxrs, should_ffill=False):
-    rxrs = [
-        preprocess_rdx(rdr, take_every_nth=1, should_ffill=should_ffill) for rdr in rxrs
-    ]
-    rxrs = [descriptive_frame(rdr) for rdr in tqdm(rxrs)]
-    return rxrs
+btcusd = pd.DataFrame(btcusd.set_index("Opened")["Close"], columns=["Close"])
+btcusd.index = pd.to_datetime(btcusd.index)
+btcusd = btcusd.resample("1D").last()
+btcusd = btcusd.loc[
+    relevant_timeframes[0][0] : relevant_timeframes[-1][1]
+]  # need to match up with the trading periods from our strategy
+btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
+btcusd["cumProfit"] = btcusd["Close"]
+btcusd["Buy&Hold (BTC)"] = btcusd["Close"]
+btcusd["Buy&Hold (BTC)"].plot(linewidth=1, color="k", ax=ax)
+
+benchmark_table = pd.concat(
+    [
+        pd.Series(generate_stats_from_ts(rdd_trading_ts, btcusd)),
+        pd.Series(generate_stats_from_ts(rdc_trading_ts, btcusd)),
+        pd.Series(generate_stats_from_ts(rdr_trading_ts, btcusd)),
+        pd.Series(generate_stats_from_ts(btcusd)),
+    ],
+    axis=1,
+    keys=["Distance", "Cointegration", "Random", "Market"],
+)
+
+benchmark_table = beautify(benchmark_table)
+latexsave(
+    benchmark_table, os.path.join(paper1_univ.save_path_tables, "benchmarkresultstable")
+)
 
 
+# RANDOM RESULTS TABLE
 newbase = paper1_univ.save_path_results
 tables_save = paper1_univ
 
 rdd = load_results("scenario1", "dist", newbase)
 rdc = load_results("scenario1", "coint", newbase)
+
+rhd = load_results("scenario3", "dist", newbase)
+rhc = load_results("scenario3", "coint", newbase)
+
+rtd = load_results("scenario7", "dist", newbase)
+rtc = load_results("scenario7", "coint", newbase)
+
+
 rdd = preprocess_rdx(rdd, take_every_nth=1)
 rdc = preprocess_rdx(rdc, take_every_nth=1)
+rhd = preprocess_rdx(rhd, take_every_nth=1)
+rhc = preprocess_rdx(rhc, take_every_nth=1)
+rtd = preprocess_rdx(rtd, take_every_nth=1)
+rtc = preprocess_rdx(rtc, take_every_nth=1)
 
-rdrs = load_random_scenarios(newbase, prefix="scenario_randomd")
-rhrs = load_random_scenarios(newbase, prefix="scenario_randomh")
-rtrs = load_random_scenarios(newbase, prefix="scenario_randomt")
+#NOTE USE THIS WHEN RERUNNING FROM SCRATCH ONLY
+
+# rdrs = load_random_scenarios(newbase, prefix="scenario_randomd")
+# rhrs = load_random_scenarios(newbase, prefix="scenario_randomh")
+# rtrs = load_random_scenarios(newbase, prefix="scenario_randomt")
 
 
-rdrs = prepare_random_scenarios(rdrs, should_ffill=False)
-rhrs = prepare_random_scenarios(rhrs, should_ffill=False)
-rtrs = prepare_random_scenarios(rtrs, should_ffill=False)
+# rdrs = prepare_random_scenarios(rdrs, should_ffill=False)
+# rhrs = prepare_random_scenarios(rhrs, should_ffill=False)
+# rtrs = prepare_random_scenarios(rtrs, should_ffill=False)
 
-with open(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"), "wb") as f:
-    pickle.dump(rdrs, f)
+# with open(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"), "wb") as f:
+#     pickle.dump(rdrs, f)
 
-with open(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"), "wb") as f:
-    pickle.dump(rhrs, f)
+# with open(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"), "wb") as f:
+#     pickle.dump(rhrs, f)
 
-with open(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"), "wb") as f:
-    pickle.dump(rtrs, f)
+# with open(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"), "wb") as f:
+#     pickle.dump(rtrs, f)
+
+rdrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"))
+rhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"))
+rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"))
 
 
 feasible = [
@@ -231,9 +229,6 @@ minute_aggs = sum(minute_aggs) / len(minute_aggs)
 
 agg = pd.concat([daily_aggs, hourly_aggs, minute_aggs], axis=1)
 
-# agg = aggregate(
-#     [rdrs[1], rhrs[1], rtrs[1]], columns_to_pick=feasible, multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Random"]], trades_nonzero=True, returns_nonzero=True
-# )
 agg = standardize_results(agg, poslen=[1, 1 / 24, 1 / 288], numtrades=[1 / 2, 3, 10])
 agg = beautify(agg)
 latexsave(agg, os.path.join(paper1_univ.save_path_tables, "randomresultstable"))

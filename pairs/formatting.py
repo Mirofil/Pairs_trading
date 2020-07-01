@@ -1,3 +1,4 @@
+import numpy as np
 def beautify(df, overlap=False):
     formats = {
         "Monthly profit": "{:.2%}",
@@ -31,6 +32,8 @@ def beautify(df, overlap=False):
         "Monthly profit (committed)": "{:.2%}",
         "Nominated pairs": "{:.3}",
         "Traded pairs": "{:.2%}",
+        "Standard deviation":"{:.2}",
+        "Corr. to market": "{:.2}"
     }
     if overlap == False:
         df = df.astype("float32")
