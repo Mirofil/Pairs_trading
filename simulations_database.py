@@ -68,3 +68,6 @@ scenario8_coint={"freq":"5T",'lag':1, 'txcost':0.000, 'training_delta':[0,3,0], 
 
 scenario7_coint_nolag={"freq":"5T",'lag':0, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_nolag"}
 scenario7_nolag={"freq":"5T",'lag':0, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_nolag"}
+
+scenario7_full_coverage = {"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,3,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_full_coverage"}
+scenario7_coint_full_coverage = {"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,3,0], 'methods':['coint'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7_full_coverage"}

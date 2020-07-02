@@ -80,6 +80,9 @@ simulate(scenario7_coint, num_of_processes=3)
 simulate(scenario8_coint, num_of_processes=3)
 simulate(scenario7_coint_nolag, num_of_processes=3)
 
+simulate(scenario7_full_coverage)
+simulate(scenario7_coint_full_coverage)
+
 #RANDOMS
 for i in range(0,50):
     simulate(scenario_random, random_idx=i)

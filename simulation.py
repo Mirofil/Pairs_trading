@@ -32,7 +32,10 @@ def simulate(params, num_of_processes = num_of_processes, random_idx=None):
         if random_idx is not None:
             os.mkdir(save+scenario+str(random_idx))
         else:
-            os.mkdir(save+scenario)
+            try:
+                os.mkdir(save+scenario)
+            except:
+                pass
     with open(save+scenario+'\\'+'parameters'+'.txt', 'w') as tf:
         print(params, file=tf)
     for i in range(5000):
