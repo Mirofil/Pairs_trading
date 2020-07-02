@@ -255,7 +255,7 @@ feasible = [
 ]
 agg = aggregate(
     [ddd, ddc, dhd, dhc, dtd, dtc],
-num_nominatedasible,
+    columns_to_pick=feasible,
     trades_nonzero=True,
     returns_nonzero=True,
     trading_period_days=[60, 60, 10, 10, 3, 3],

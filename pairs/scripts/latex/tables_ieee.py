@@ -39,7 +39,7 @@ rdrs = load_random_scenarios(newbase, prefix='scenario_randomd')
 rhrs = load_random_scenarios(newbase, prefix='scenario_randomh')
 rtrs = load_random_scenarios(newbase, prefix='scenario_randomt')
 
-nth = 2
+
 
 #NOTE TAKE CARE IF YOU WANT TO LOAD PREDEFINED rdrs, .. Here we should take every nth to form the timeseries but in the big results table, we want every backtest
 rdd = preprocess_rdx(rdd, take_every_nth=2, should_ffill=False)
@@ -50,7 +50,7 @@ rtd = preprocess_rdx(rtd, take_every_nth=1,should_ffill=False)
 rtc = preprocess_rdx(rtc, take_every_nth=1,should_ffill=False)
 rdrs = [preprocess_rdx(rdr, take_every_nth=2,should_ffill=False) for rdr in tqdm(rdrs)]
 rhrs = [preprocess_rdx(rhr, take_every_nth=1,should_ffill=False) for rhr in tqdm(rhrs)]
-rtrs = [preprocess_rdx(rtr, take_every_nth=nth,should_ffill=False) for rtr in tqdm(rtrs)]
+rtrs = [preprocess_rdx(rtr, take_every_nth=1,should_ffill=False) for rtr in tqdm(rtrs)]
 
 ddd = descriptive_frame(rdd)
 ddc = descriptive_frame(rdc)
@@ -110,7 +110,6 @@ btcusd = btcusd.loc[
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
 btcusd["cumProfit"] = btcusd["Close"]
 btcusd["Buy&Hold (BTC)"] = btcusd["Close"]
-btcusd["Buy&Hold (BTC)"].plot(linewidth=1, color="k", ax=ax)
 
 benchmark_table = pd.concat(
     [
@@ -129,26 +128,26 @@ latexsave(
 )
 
 
-# RANDOM RESULTS TABLE
+# BIG RESULTS TABLE WITH RANDOM RESULTS AND CORRELATIONS
 newbase = paper1_univ.save_path_results
 tables_save = paper1_univ
 
-rdd = load_results("scenario1", "dist", newbase)
-rdc = load_results("scenario1", "coint", newbase)
+# rdd = load_results("scenario1", "dist", newbase)
+# rdc = load_results("scenario1", "coint", newbase)
 
-rhd = load_results("scenario3", "dist", newbase)
-rhc = load_results("scenario3", "coint", newbase)
+# rhd = load_results("scenario3", "dist", newbase)
+# rhc = load_results("scenario3", "coint", newbase)
 
-rtd = load_results("scenario7", "dist", newbase)
-rtc = load_results("scenario7", "coint", newbase)
+# rtd = load_results("scenario7", "dist", newbase)
+# rtc = load_results("scenario7", "coint", newbase)
 
 
-rdd = preprocess_rdx(rdd, take_every_nth=1)
-rdc = preprocess_rdx(rdc, take_every_nth=1)
-rhd = preprocess_rdx(rhd, take_every_nth=1)
-rhc = preprocess_rdx(rhc, take_every_nth=1)
-rtd = preprocess_rdx(rtd, take_every_nth=1)
-rtc = preprocess_rdx(rtc, take_every_nth=1)
+# rdd = preprocess_rdx(rdd, take_every_nth=1)
+# rdc = preprocess_rdx(rdc, take_every_nth=1)
+# rhd = preprocess_rdx(rhd, take_every_nth=1)
+# rhc = preprocess_rdx(rhc, take_every_nth=1)
+# rtd = preprocess_rdx(rtd, take_every_nth=1)
+# rtc = preprocess_rdx(rtc, take_every_nth=1)
 
 #NOTE USE THIS WHEN RERUNNING FROM SCRATCH ONLY
 
@@ -169,6 +168,13 @@ rtc = preprocess_rdx(rtc, take_every_nth=1)
 
 # with open(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"), "wb") as f:
 #     pickle.dump(rtrs, f)
+
+ddd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
+dhd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhd.pkl"))
+dhc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables,"dhc.pkl"))
+ddc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddc.pkl"))
+dtd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtd.pkl"))
+dtc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtc.pkl"))
 
 rdrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"))
 rhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"))
@@ -227,9 +233,31 @@ daily_aggs = sum(daily_aggs) / len(daily_aggs)
 hourly_aggs = sum(hourly_aggs) / len(hourly_aggs)
 minute_aggs = sum(minute_aggs) / len(minute_aggs)
 
-agg = pd.concat([daily_aggs, hourly_aggs, minute_aggs], axis=1)
+agg_rand = pd.concat([daily_aggs, hourly_aggs, minute_aggs], axis=1)
 
-agg = standardize_results(agg, poslen=[1, 1 / 24, 1 / 288], numtrades=[1 / 2, 3, 10])
+agg_rand = standardize_results(agg_rand, poslen=[1, 1 / 24, 1 / 288], numtrades=[1 / 2, 3, 10])
+agg_rand = beautify(agg_rand)
+
+agg = aggregate(
+    [ddd, ddc, dhd, dhc, dtd, dtc],
+    columns_to_pick=feasible,
+    trades_nonzero=True,
+    returns_nonzero=True,
+    trading_period_days=[60, 60, 10, 10, 3, 3],
+    multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
+)
+agg = standardize_results(
+    agg,
+    poslen=[1, 1, 1 / 24, 1 / 24, 1 / 288, 1 / 288],
+    numtrades=[1 / 2, 1 / 2, 3, 3, 10, 10],
+
+)
 agg = beautify(agg)
-latexsave(agg, os.path.join(paper1_univ.save_path_tables, "randomresultstable"))
+
+def nth_column(df, n):
+    return df[[df.columns[n]]]
+
+total_agg = pd.concat([nth_column(agg, 0), nth_column(agg, 1), nth_column(agg_rand, 0), nth_column(agg,2), nth_column(agg,3), nth_column(agg_rand,1), nth_column(agg,4), nth_column(agg,5), nth_column(agg_rand, 2)], axis=1)
+
+latexsave(total_agg, os.path.join(paper1_univ.save_path_tables, "randomresultstable_full"))
 
