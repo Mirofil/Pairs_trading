@@ -283,6 +283,8 @@ def aggregate(
     returns_nonzero=False,
     trades_nonzero=False,
 ):
+    assert len(trading_period_days) == len(descriptive_frames)
+    assert len(multiindex_from_product_cols[0])*len(multiindex_from_product_cols[1]) == len(descriptive_frames)
     temp = []
     for i in range(len(descriptive_frames)):
         desc_frame = descriptive_frames[i]

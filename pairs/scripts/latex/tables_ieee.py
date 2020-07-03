@@ -24,16 +24,20 @@ from pairs.formatting import standardize_results, beautify
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.formatting import beautify, standardize_results
+from pairs.scripts.latex.helpers import resample_multiindexed_backtests
 
-# BASELINE BENCHMARK DRESULTS TABLE
+
+
+# BASELINE BENCHMARK RESULTS TABLE
 newbase = paper1_univ.save_path_results
 rdd = load_results("scenario1", "dist", newbase)
 rdc = load_results("scenario1", "coint", newbase)
 rhd = load_results("scenario3", "dist", newbase)
 rhc = load_results("scenario3", "coint", newbase)
+rtd = load_results("scenario7_full_coverage", "dist", newbase)
+rtc = load_results("scenario7_full_coverage", "coint", newbase)
 
-rtd = load_results("scenario7", "dist", newbase)
-rtc = load_results("scenario7", "coint", newbase)
+
 
 rdrs = load_random_scenarios(newbase, prefix='scenario_randomd')
 rhrs = load_random_scenarios(newbase, prefix='scenario_randomh')
@@ -48,6 +52,13 @@ rhd = preprocess_rdx(rhd, take_every_nth=1,should_ffill=False)
 rhc = preprocess_rdx(rhc, take_every_nth=1,should_ffill=False)
 rtd = preprocess_rdx(rtd, take_every_nth=1,should_ffill=False)
 rtc = preprocess_rdx(rtc, take_every_nth=1,should_ffill=False)
+
+rhd=resample_multiindexed_backtests(rhd)
+rhc = resample_multiindexed_backtests(rhc)
+rtd = resample_multiindexed_backtests(rtd)
+rtc = resample_multiindexed_backtests(rtc)
+
+
 rdrs = [preprocess_rdx(rdr, take_every_nth=2,should_ffill=False) for rdr in tqdm(rdrs)]
 rhrs = [preprocess_rdx(rhr, take_every_nth=1,should_ffill=False) for rhr in tqdm(rhrs)]
 rtrs = [preprocess_rdx(rtr, take_every_nth=1,should_ffill=False) for rtr in tqdm(rtrs)]
@@ -59,45 +70,84 @@ dhc = descriptive_frame(rhc)
 dtd = descriptive_frame(rtd)
 dtc = descriptive_frame(rtc)
 
-relevant_timeframes = generate_timeframes(
+#NOTE CAREFUL WITH THIS LOADING! THE NTH PARAMETER MIGHT BE OUT OF SYNC
+# ddd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
+# dhd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhd.pkl"))
+# dhc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhc.pkl"))
+# ddc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddc.pkl"))
+# dtd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtd.pkl"))
+# dtc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtc.pkl"))
+
+# rdrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"))
+# rhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"))
+# rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"))
+
+
+relevant_timeframes_d = generate_timeframes(
     rdd, jump_delta=relativedelta(months=2, days=0, hours=0)
 )
 
 relevant_timeframes_h = generate_timeframes(rhd, jump_delta=relativedelta(months=0, days=10, hours=0))
-relevant_timeframes_t = generate_timeframes(rtd, jump_delta=relativedelta(months=0, days=6, hours=0))
+relevant_timeframes_t = generate_timeframes(rtd, jump_delta=relativedelta(months=0, days=3, hours=0))
 
 rdd_trading_ts = produce_trading_ts(
-    rdd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rdd, relevant_timeframes_d, take_every_nth=2, keep_ts_continuity=True
 )
 
 rdc_trading_ts = produce_trading_ts(
-    rdc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rdc, relevant_timeframes_d, take_every_nth=2, keep_ts_continuity=True
 )
 rhd_trading_ts = produce_trading_ts(
-    rhd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rhd, relevant_timeframes_h, take_every_nth=1, keep_ts_continuity=True
 )
 rhc_trading_ts = produce_trading_ts(
-    rhc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rhc, relevant_timeframes_h, take_every_nth=1, keep_ts_continuity=True
 )
 rtd_trading_ts = produce_trading_ts(
-    rtd, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rtd, relevant_timeframes_t, take_every_nth=1, keep_ts_continuity=True
 )
 rtc_trading_ts = produce_trading_ts(
-    rtc, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+    rtc, relevant_timeframes_t, take_every_nth=1, keep_ts_continuity=True
 )
 
 
 rdrs = [
     produce_trading_ts(
-        rdr, relevant_timeframes, take_every_nth=nth, keep_ts_continuity=True
+        rdr, relevant_timeframes_d, take_every_nth=2, keep_ts_continuity=True
     )
     for rdr in tqdm(rdrs)
+]
+rhrs = [
+    produce_trading_ts(
+        rhr, relevant_timeframes_h, take_every_nth=1, keep_ts_continuity=True
+    )
+    for rhr in tqdm(rhrs)
+]
+rtrs = [
+    produce_trading_ts(
+        rtr, relevant_timeframes_t, take_every_nth=1, keep_ts_continuity=True
+    )
+    for rtr in tqdm(rtrs)
 ]
 
 
 
 rdr_trading_ts = pd.concat(rdrs).groupby(level=0).mean()
+rhr_trading_ts = pd.concat(rhrs).groupby(level=0).mean()
+rtr_trading_ts = pd.concat(rtrs).groupby(level=0).mean()
 
+with open(os.path.join(paper1_univ.save_path_tables, "rdr_trading_ts.pkl"), "wb") as f:
+    pickle.dump(rdr_trading_ts, f)
+
+with open(os.path.join(paper1_univ.save_path_tables, "rhr_trading_ts.pkl"), "wb") as f:
+    pickle.dump(rhr_trading_ts, f)
+
+with open(os.path.join(paper1_univ.save_path_tables, "rtr_trading_ts.pkl"), "wb") as f:
+    pickle.dump(rtr_trading_ts, f)
+
+rdr_trading_ts = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rdr_trading_ts.pkl"))
+rhr_trading_ts = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rhr_trading_ts.pkl"))
+rtr_trading_ts = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rtr_trading_ts.pkl"))
 
 
 
@@ -105,7 +155,7 @@ btcusd = pd.DataFrame(btcusd.set_index("Opened")["Close"], columns=["Close"])
 btcusd.index = pd.to_datetime(btcusd.index)
 btcusd = btcusd.resample("1D").last()
 btcusd = btcusd.loc[
-    relevant_timeframes[0][0] : relevant_timeframes[-1][1]
+    relevant_timeframes_d[0][0] : relevant_timeframes_d[-1][1]
 ]  # need to match up with the trading periods from our strategy
 btcusd["Close"] = btcusd["Close"] / btcusd["Close"].iloc[0]
 btcusd["cumProfit"] = btcusd["Close"]
@@ -121,6 +171,8 @@ benchmark_table = pd.concat(
     axis=1,
     keys=["Distance", "Cointegration", "Random", "Market"],
 )
+
+
 
 benchmark_table = beautify(benchmark_table)
 latexsave(
@@ -176,9 +228,9 @@ ddc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddc.pkl"))
 dtd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtd.pkl"))
 dtc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtc.pkl"))
 
-rdrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rdrs.pkl"))
-rhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rhrs.pkl"))
-rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "rtrs.pkl"))
+rdrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddrs.pkl"))
+rhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhrs.pkl"))
+rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtrs.pkl"))
 
 
 feasible = [
@@ -203,6 +255,7 @@ daily_aggs = [
         multiindex_from_product_cols=[["Daily"], ["Random"]],
         trades_nonzero=True,
         returns_nonzero=True,
+        trading_period_days=[60]
     )
     for rdr in rdrs
 ]
@@ -214,6 +267,7 @@ hourly_aggs = [
         multiindex_from_product_cols=[["Hourly"], ["Random"]],
         trades_nonzero=True,
         returns_nonzero=True,
+        trading_period_days=[10],
     )
     for rhr in rhrs
 ]
@@ -225,6 +279,7 @@ minute_aggs = [
         multiindex_from_product_cols=[["5-Minute"], ["Random"]],
         trades_nonzero=True,
         returns_nonzero=True,
+        trading_period_days=[3]
     )
     for rtr in rtrs
 ]
