@@ -30,7 +30,7 @@ if __name__ == "__main__":
     ray.init(
         num_cpus=39,
         # include_webui=True,
-        log_to_driver=True,
+        log_to_driver=False,
         
     )
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     analysis = tune.run(
         simulate,
         local_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/ray_results/",
-        name="simulate_retries_new",
+        name="simulate_dist_retries_nomlflow",
         max_failures=3,
         config=generate_scenario(
             freq="1D",
