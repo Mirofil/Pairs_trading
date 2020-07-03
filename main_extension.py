@@ -11,7 +11,7 @@ import datetime
 import scipy
 import statsmodels
 import seaborn as sns
-import multiprocess as mp
+import multiprocessing as mp
 from dateutil.relativedelta import relativedelta
 from distancemethod import *
 from helpers import *
@@ -20,6 +20,7 @@ from config import *
 from simulation import *
 from simulations_database import *
 from tqdm import tqdm
+from joblib import Parallel, delayed
 pd.options.mode.chained_assignment = None
 formation = (datetime.date(*[2018,1,1]), datetime.date(*[2018,1,7]))
 trading = (formation[1], formation[1]+relativedelta(days=3))
@@ -87,11 +88,16 @@ simulate(scenario7_coint_full_coverage)
 for i in range(0,50):
     simulate(scenario_random, random_idx=i)
 
-for i in tqdm(range(5,10)):
+for i in tqdm(range(10,20)):
     simulate(scenario_randomh, random_idx=i)
 
-for i in tqdm(range(5,10)):
-    simulate(scenario_randomt, random_idx=i)
+for i in tqdm(range(1,20)):
+    simulate(scenario_randomt_full_coverage, random_idx=i)
+
+def worker(idx):
+    simulate(scenario_randomt_full_coverage, random_idx=idx)
+
+Parallel(n_jobs=30)(delayed(worker)(i) for i in range(30))
 
 #%%
 #COINTEGRATION TESTING

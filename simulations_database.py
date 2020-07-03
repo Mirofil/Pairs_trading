@@ -59,7 +59,7 @@ scenario5_nolag={"freq":"1T",'lag':0, 'txcost':0.003, 'training_delta':[0,1,0], 
 
 #5MINUTE
 scenario_randomt={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['random'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario_randomt"}
-
+scenario_randomt_full_coverage = {"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,3,0], 'methods':['random'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario_randomt_full_coverage"}
 
 scenario7={"freq":"5T",'lag':1, 'txcost':0.003, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':"scenario7"}
 scenario8={"freq":"5T",'lag':1, 'txcost':0.000, 'training_delta':[0,3,0], 'cutoff':0.7, 'formation_delta':[0,6,0], 'start':starting_date, 'end':ending_date, 'jump':[0,6,0], 'methods':['dist'], 'dist_num':20, 'threshold':2, 'stoploss':100,'name':'scenario8'}
