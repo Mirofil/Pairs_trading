@@ -1,7 +1,6 @@
 #%%
 import os
-# os.environ['OPENBLAS_NUM_THREADS'] = '40'
-# os.environ['MKL_NUM_THREADS'] = '40'
+
 import numpy as np 
 import pandas as pd 
 import datetime
