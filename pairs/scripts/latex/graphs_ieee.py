@@ -21,6 +21,8 @@ import glob
 from tqdm import tqdm
 from pairs.scripts.latex.helpers import *
 from pairs.scripts.latex.helpers import resample_multiindexed_backtests
+from joblib import Parallel, delayed
+
 # GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
 
 newbase = paper1_univ.save_path_results
@@ -90,6 +92,8 @@ plt.savefig(os.path.join(paper1_univ.save_path_graphs, "btcprice.png"), dpi=300)
 # %%
 #SUPER GRAPH
 newbase = paper1_univ.save_path_results
+workers = 30
+
 rdd = load_results("scenario1", "dist", newbase)
 rdc = load_results("scenario1", "coint", newbase)
 rhd = load_results("scenario3", "dist", newbase)
@@ -101,6 +105,8 @@ rhd = resample_multiindexed_backtests(rhd)
 rhc = resample_multiindexed_backtests(rhc)
 rtd = resample_multiindexed_backtests(rtd)
 rtc = resample_multiindexed_backtests(rtc) #This takes like 50 mins
+rhrs = [resample_multiindexed_backtests(rhr) for rhr in tqdm(rhrs)]
+rtrs = Parallel(n_jobs=min(workers, len(rtrs)))(delayed(resample_multiindexed_backtests)(rtr) for rtr in tqdm(rtrs))
 
 rdrs = load_random_scenarios(newbase, prefix='scenario_randomd')
 rhrs = load_random_scenarios(newbase, prefix='scenario_randomh')
@@ -119,10 +125,7 @@ rtc = preprocess_rdx(rtc, take_every_nth=1,should_ffill=True)
 
 rdrs = [preprocess_rdx(rdr, take_every_nth=2,should_ffill=True) for rdr in tqdm(rdrs)]
 rhrs = [preprocess_rdx(rhr, take_every_nth=1,should_ffill=True) for rhr in tqdm(rhrs)]
-rtrs = [preprocess_rdx(rtr, take_every_nth=1,should_ffill=True) for rtr in tqdm(rtrs)]
-
-rhrs = [resample_multiindexed_backtests(rhr) for rhr in tqdm(rhrs)]
-rtrs = [resample_multiindexed_backtests(rtr) for rtr in tqdm(rtrs)]
+rtrs = Parallel(n_jobs=min(workers,len(rtrs)))(delayed(preprocess_rdx)(rtr, take_every_nth=1,should_ffill=True) for rtr in rtrs)
 
 
 # ddd = descriptive_frame(rdd)
