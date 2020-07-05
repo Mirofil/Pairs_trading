@@ -244,7 +244,7 @@ dtrs = prepare_random_scenarios(rtrs, should_ffill=False)
 #     pickle.dump(dtrs, f)
 
 
-rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
+# rtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
 
 ddd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddd.pkl"))
 dhd = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhd.pkl"))

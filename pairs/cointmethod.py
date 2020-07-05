@@ -11,7 +11,7 @@ import timeit
 import multiprocess as mp
 from sklearn.linear_model import LinearRegression
 from tqdm import tqdm
-from pairs.stattools_alt import coint
+from pairs.optimization.stattools_alt import coint
 import re
 try:
     import CyURT as urt

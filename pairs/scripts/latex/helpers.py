@@ -1,26 +1,23 @@
+import datetime
+import glob
+import os
+import timeit
+from typing import *
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
-import datetime
-import matplotlib.pyplot as plt
-import timeit
-import datetime
-from typing import *
 from dateutil.relativedelta import relativedelta
-from pairs.distancemethod import *
-from pairs.helpers import *
+from joblib import Parallel, delayed
+from tqdm import tqdm
+
+from pairs.analysis import (aggregate, descriptive_frame, descriptive_stats,
+                            drawdown, infer_periods)
 from pairs.cointmethod import *
 from pairs.config import paper1_univ
-from pairs.analysis import (
-    descriptive_frame,
-    descriptive_stats,
-    infer_periods,
-    aggregate,
-)
+from pairs.distancemethod import *
 from pairs.formatting import standardize_results
-import glob
-from tqdm import tqdm
-from joblib import Parallel, delayed
+from pairs.helpers import *
 
 # GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
 
