@@ -285,10 +285,11 @@ def simulate(
         logging_params.append(log_params_with_retries(aggregated,params, threshold,lag,txcost,stoploss,formation,trading,UNIQUE_ID))
         logging_metrics.append(log_metrics_with_retries(aggregated))
 
-        try:
-            ray.tune.track.log(**logging_params[i],**logging_metrics[i][0],iteration=str(i))
-        except:
-            pass
+        if i % 100 == 0:
+            try:
+                ray.tune.track.log(**logging_params[i],**logging_metrics[i][0],iteration=str(i))
+            except:
+                pass
         # NOTE Saving turns out to be taking too much spave so no saving..
         # for artifact_name, artifact_df in artifacts.items():
         #     artifact_df.to_parquet(f"{artifact_name}.parquet")
