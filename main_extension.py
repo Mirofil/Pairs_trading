@@ -94,7 +94,7 @@ for i in tqdm(range(1,20)):
     simulate(scenario_randomt_full_coverage, random_idx=i)
 
 def worker(idx):
-    simulate(scenario_randomt_full_coverage, random_idx=idx)
+    simulate(scenario_randomt, random_idx=idx)
 
 Parallel(n_jobs=30)(delayed(worker)(i) for i in range(30))
 
