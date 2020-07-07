@@ -18,8 +18,9 @@ from tqdm import tqdm
 from pairs.config import data_path
 
 
-def pick_range(df: pd.DataFrame, start, end):
-    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
+def pick_range(df: pd.DataFrame, start=None, end=None):
+    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex
+    DF should have index of the shape TICKER-TIME"""
     # There is a bug when the end is past the preprocessed length, one index of the level disappears?
 
     # if timeframe[1] in df.loc[name].index:
