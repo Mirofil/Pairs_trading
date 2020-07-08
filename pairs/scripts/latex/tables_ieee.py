@@ -328,6 +328,7 @@ agg = aggregate(
     trading_period_days=[60, 60, 10, 10, 3, 3],
     multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
 )
+
 agg = standardize_results(
     agg,
     poslen=[1, 1, 1 / 24, 1 / 24, 1 / 288, 1 / 288],

@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+
 def beautify(df, overlap=False):
     formats = {
         "Monthly profit": "{:.2%}",
@@ -129,6 +131,17 @@ def produce_stoploss_table(des, prefix, freqs):
 def standardize_results(
     df, poslen=[1, 1, 1 / 24, 1 / 24], numtrades=[1 / 2, 1 / 2, 3, 3], drop=True
 ):
+    """This standardizes some metrics that rely on time ratios to days or months
+
+    Args:
+        df ([type]): Should be the outcome of aggregate, so one of the final steps
+        poslen (list, optional): Used for normalizing the trading period. Should be the length of one time period in days. Defaults to [1, 1, 1 / 24, 1 / 24].
+        numtrades (list, optional): Converts the number of trades to monthly. Assumes linear scaling. Defaults to [1 / 2, 1 / 2, 3, 3].
+        drop (bool, optional): Drops some garbage columns that are undesirable in the final output. Defaults to True.
+
+    Returns:
+        [type]: [description]
+    """
     df.loc["Avg length of position"] = (
         df.loc["Avg length of position"].astype("float32") * poslen
     )

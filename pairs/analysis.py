@@ -261,8 +261,21 @@ def summarize(df, index, mean=False):
 def compute_period_length(specification:List):
     return specification[0]*30+specification[1]
 
+def compute_period_length_in_days(freq:str):
+    multiplier = None
+    if freq =='1D':
+        multiplier = 1
+    elif freq == '1H':
+        multiplier = 1/24
+    elif freq == '5T':
+        multiplier = 1/288
+
+    assert multiplier is not None
+
+    return multiplier
+
 def compute_cols_from_freq(freqs:List[str], methods:List[str]):
-    """
+    """ Useful for automatically populating the parameters in aggregate
     >>> compute_cols_from_freq(["1D"], ["dist"]) """
     results = []
     for freq in freqs:
@@ -277,15 +290,32 @@ def compute_cols_from_freq(freqs:List[str], methods:List[str]):
 
 def aggregate(
     descriptive_frames: List[pd.DataFrame],
-    columns_to_pick,
-    trading_period_days=[60, 60, 10, 10],
+    columns_to_pick:List[str]=None,
+    trading_period_days:List[int]=[60, 60, 10, 10],
     multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
-    returns_nonzero=False,
-    trades_nonzero=False,
+    returns_nonzero=True,
+    trades_nonzero=True,
 ):
     assert len(trading_period_days) == len(descriptive_frames)
     assert len(multiindex_from_product_cols[0])*len(multiindex_from_product_cols[1]) == len(descriptive_frames)
     temp = []
+
+    if columns_to_pick is None:
+        columns_to_pick = [
+            "Monthly profit",
+            "Annual profit",
+            "Total profit",
+            "Annualized Sharpe",
+            "Trading period Sharpe",
+            "Number of trades",
+            "Roundtrip trades",
+            "Avg length of position",
+            "Pct of winning trades",
+            "Max drawdown",
+            "Nominated pairs",
+            "Traded pairs",
+        ]
+
     for i in range(len(descriptive_frames)):
         desc_frame = descriptive_frames[i]
         num_nominated = len(desc_frame.index.get_level_values(level=1)) / (
