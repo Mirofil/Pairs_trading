@@ -9,3 +9,6 @@ def test_name_from_path():
         name_from_path(os.path.join(paper1_data_path, "STORMBTC.csv")) == "STORMBTC"
     )
 
+def test_filter_by_period():
+    parent_dir = os.path.dirname(__file__)
+    reference = pd.read_parquet(os.path.join(parent_dir, "dist_signal_reference.parquet"))

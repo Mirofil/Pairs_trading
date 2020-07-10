@@ -16,10 +16,13 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
 from pairs.config import data_path
+from pairs.analysis import infer_periods
 
 
-def pick_range(df: pd.DataFrame, start, end):
-    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex"""
+
+def pick_range(df: pd.DataFrame, start=None, end=None):
+    """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex
+    DF should have index of the shape TICKER-TIME"""
     # There is a bug when the end is past the preprocessed length, one index of the level disappears?
 
     # if timeframe[1] in df.loc[name].index:
@@ -49,6 +52,32 @@ def pick_range(df: pd.DataFrame, start, end):
         result = result.droplevel(level=0)
 
     return result
+
+def backtests_up_to_date(
+    backtests: pd.DataFrame, min_formation_period_start=None, max_trading_period_end: str = None, print_chosen_periods=False
+):
+    if type(max_trading_period_end) is str:
+        max_trading_period_end = pd.to_datetime(max_trading_period_end)
+    if type(min_formation_period_start) is str:
+        min_formation_period_start = pd.to_datetime(min_formation_period_start)
+
+    if min_formation_period_start is None:
+        min_formation_period_start = backtests.iloc[0]
+
+    backtests_trimmed = []
+    backtests_trimmed_idxs = []
+
+    for backtest_idx in backtests.index.get_level_values(0).unique(0):
+        periods = infer_periods(backtests.loc[backtest_idx])
+        if pd.to_datetime(periods["trading"][1]) < max_trading_period_end and pd.to_datetime(periods['formation'][0]) >= min_formation_period_start:
+            
+            backtests_trimmed.append(pick_range(backtests.loc[backtest_idx], start=min_formation_period_start, end=max_trading_period_end))
+            backtests_trimmed_idxs.append(backtest_idx)
+
+        if pd.to_datetime(periods["trading"][1]) > max_trading_period_end:
+            break
+
+    return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
 
 
 def signals_numeric(olddf, copy=True):

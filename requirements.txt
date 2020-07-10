@@ -17,3 +17,5 @@ yfinance
 mlflow
 mlflowhelper
 retry
+joblib
+p-tqdm

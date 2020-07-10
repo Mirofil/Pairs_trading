@@ -19,7 +19,6 @@ from pairs.distancemethod import *
 from pairs.formatting import standardize_results
 from pairs.helpers import *
 
-# GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
 
 def produce_trading_ts(
     rxx:pd.DataFrame, relevant_timeframes:List, take_every_nth:int=1, dxx: pd.DataFrame=None, keep_ts_continuity:bool=True, desired_mult_coef = None

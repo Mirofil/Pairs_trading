@@ -19,10 +19,8 @@ from pairs.formatting import standardize_results
 from pairs.helpers import *
 from pairs.scripts.latex.helpers import *
 from pairs.scripts.latex.helpers import resample_multiindexed_backtests
-<<<<<<< HEAD
+
 from joblib import Parallel, delayed
-=======
->>>>>>> 8239006163caecddb41397a27158622b77cd712f
 
 # GRAPH OF BTC PRICE AND COMPARISON TO BUY AND HOLD
 

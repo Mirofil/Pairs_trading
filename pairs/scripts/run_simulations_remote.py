@@ -60,7 +60,7 @@ if __name__ == "__main__":
             method="dist",
             dist_num=tune.grid_search([5, 10, 20, 40]),
             threshold=tune.grid_search([0.5,1,1.5,2,2.5,3]),
-            stoploss=0,
+            stoploss=100,
             redo_prefiltered=True,
             redo_preprocessed=True,
             truncate=True,

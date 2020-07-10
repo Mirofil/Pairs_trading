@@ -26,7 +26,7 @@ from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.scripts.latex.helpers import resample_multiindexed_backtests
 
-# BASELINE BENCHMARK RESULTS TABLE
+# BASELINE BENCHMARK RESULTS TABLE NOTE this one is actually not being used in practice!
 newbase = paper1_univ.save_path_results
 rdd = load_results("scenario1", "dist", newbase)
 rdc = load_results("scenario1", "coint", newbase)
@@ -255,7 +255,7 @@ dtc = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtc.pkl"))
 
 ddrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "ddrs.pkl"))
 dhrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dhrs.pkl"))
-dtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtrs_old.pkl"))
+dtrs = pd.read_pickle(os.path.join(paper1_univ.save_path_tables, "dtrs_old_many.pkl"))
 
 
 feasible = [
@@ -328,6 +328,7 @@ agg = aggregate(
     trading_period_days=[60, 60, 10, 10, 3, 3],
     multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
 )
+
 agg = standardize_results(
     agg,
     poslen=[1, 1, 1 / 24, 1 / 24, 1 / 288, 1 / 288],
