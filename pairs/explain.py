@@ -39,11 +39,11 @@ params_row = [
     if param not in params_blacklist
 ]
 
-df = analysis.dataframe()
+df = analysis.copy(deep=True)
 df.columns = [col_name.replace('config/', '') for col_name in df.columns]
 
-df['formation_delta'] = df['formation_delta'].apply(lambda x: 30*x[0]+x[1])
-df['training_delta'] = df['training_delta'].apply(lambda x: 30*x[0]+x[1])
+df['formation_delta'] = df['pairs_deltas'].apply(lambda x: 30*x['formation_delta'][0]+x['formation_delta'][1])
+df['training_delta'] = df['pairs_deltas'].apply(lambda x: 30*x['training_delta'][0]+x['training_delta'][1])
 
 
 x = df[params_row]
@@ -65,7 +65,7 @@ lgb_params = {
     "min_data_in_bin":1,"min_data":1,"min_hess":0
 }
 
-gbm = lgb.train(lgb_params, train_data, num_boost_round=20,)
+gbm = lgb.train(lgb_params, train_data, num_boost_round=20, verbose_eval=1)
 
 shap.initjs()
 
