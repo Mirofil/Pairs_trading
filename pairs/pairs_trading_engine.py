@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from pairs.config import data_path
 from pairs.analysis import infer_periods
-
+from dateutil.relativedelta import relativedelta
 
 
 def pick_range(df: pd.DataFrame, start=None, end=None):
@@ -53,9 +53,54 @@ def pick_range(df: pd.DataFrame, start=None, end=None):
 
     return result
 
-def backtests_up_to_date(
-    backtests: pd.DataFrame, min_formation_period_start=None, max_trading_period_end: str = None, print_chosen_periods=False
+
+def guess_ids_in_period(
+    start_date,
+    end_date,
+    desired_start_date,
+    desired_end_date,
+    formation_delta,
+    trading_delta,
+    jump_delta,
 ):
+    """I though this would with speed of backtests_up_to_date but apparently not """
+    (start_date, end_date, desired_start_date, desired_end_date,) = [
+        pd.to_datetime(x) if type(x) is str else x
+        for x in [start_date, end_date, desired_start_date, desired_end_date,]
+    ]
+    formation_delta, trading_delta, jump_delta = [
+        relativedelta(months=x[0], days=x[1], hours=x[2]) if type(x) is list else x
+        for x in [formation_delta, trading_delta, jump_delta]
+    ]
+
+    whole_period_delta = formation_delta + jump_delta
+    whole_period_delta_months = (
+        whole_period_delta.years * 12 + whole_period_delta.months
+    )
+    start_idx = None
+    end_idx = None
+    for i in range(1000000):
+        if start_date + jump_delta * i >= desired_start_date and start_idx is None:
+            start_idx = i
+
+        if (
+            start_date + whole_period_delta + jump_delta * i > desired_end_date
+            and end_idx is None
+        ):
+            end_idx = i
+            break
+
+    return (start_idx, end_idx)
+
+
+
+def backtests_up_to_date(
+    backtests: pd.DataFrame,
+    min_formation_period_start=None,
+    max_trading_period_end: str = None,
+    print_chosen_periods=False,
+):
+    # backtests = analysis["backtests"]
     if type(max_trading_period_end) is str:
         max_trading_period_end = pd.to_datetime(max_trading_period_end)
     if type(min_formation_period_start) is str:
@@ -67,17 +112,41 @@ def backtests_up_to_date(
     backtests_trimmed = []
     backtests_trimmed_idxs = []
 
+    # for experiment_idx in tqdm(analysis.index, desc='Going through backtests'):
+    #     row = analysis.loc[experiment_idx]
+    #     for backtests in row["backtests"]:
+    #         start_id, end_id = guess_ids_in_period(
+    #             start_date=row["start_date"],
+    #             end_date=row["end_date"],
+    #             desired_start_date=min_formation_period_start,
+    #             desired_end_date=max_trading_period_end,
+    #             formation_delta=row["pairs_deltas/formation_delta"],
+    #             trading_delta=row["pairs_deltas/training_delta"],
+    #             jump_delta=row["config/jump"],
+    #         )
+    #         backtests_trimmed.append(row["backtests"].loc[range(start_id, end_id)])
+
     for backtest_idx in backtests.index.get_level_values(0).unique(0):
         periods = infer_periods(backtests.loc[backtest_idx])
-        if pd.to_datetime(periods["trading"][1]) < max_trading_period_end and pd.to_datetime(periods['formation'][0]) >= min_formation_period_start:
-            
-            backtests_trimmed.append(pick_range(backtests.loc[backtest_idx], start=min_formation_period_start, end=max_trading_period_end))
+        if (
+            pd.to_datetime(periods["trading"][1]) < max_trading_period_end
+            and pd.to_datetime(periods["formation"][0]) >= min_formation_period_start
+        ):
+
+            backtests_trimmed.append(
+                pick_range(
+                    backtests.loc[backtest_idx],
+                    start=min_formation_period_start,
+                    end=max_trading_period_end,
+                )
+            )
             backtests_trimmed_idxs.append(backtest_idx)
 
         if pd.to_datetime(periods["trading"][1]) > max_trading_period_end:
             break
 
     return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
+    # return pd.concat(backtests_trimmed)
 
 
 def signals_numeric(olddf, copy=True):
@@ -149,7 +218,7 @@ def weights_from_signals(df, cost=0):
     ] = 0
 
 
-def resample(df, freq: str ="1D", start=None, fill: bool =True):
+def resample(df, freq: str = "1D", start=None, fill: bool = True):
     """ Our original data is 1-min resolution, so we resample it to arbitrary frequency.
     Close prices get last values, Volume gets summed. 
     Only indexes past start_date are returned to have a common start for all series 
@@ -167,11 +236,10 @@ def resample(df, freq: str ="1D", start=None, fill: bool =True):
     if fill == True:
         df["Close"] = df["Close"].fillna(method="ffill")
     df["logClose"] = np.log(df["Close"])
-    df["logReturns"] = (
-        df["logClose"] - df["logClose"].shift(1)
-    ).values
+    df["logReturns"] = (df["logClose"] - df["logClose"].shift(1)).values
     df["Price"] = df["logReturns"].cumsum()
     return df[df.index > pd.to_datetime(start)]
+
 
 def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar=True):
     """Picks out the viable pairs of the original df (which has all pairs)

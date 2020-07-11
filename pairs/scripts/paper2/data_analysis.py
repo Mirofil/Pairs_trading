@@ -33,10 +33,60 @@ from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
 from pairs.scripts.latex.loaders import join_results_by_id
+from pairs.scripts.paper2.helpers import nya_stats
 
+
+def load_experiment(
+    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+    ids=None,
+    trimmed_backtests=None,
+    descs=None,
+    workers=10,
+):
+    analysis = ray.tune.Analysis(experiment_dir=experiment_dir).dataframe().loc[ids]
+    analysis["pairs_deltas/formation_delta"] = analysis[
+        "pairs_deltas/formation_delta"
+    ].apply(lambda x: eval(x))
+    analysis["pairs_deltas/training_delta"] = analysis[
+        "pairs_deltas/training_delta"
+    ].apply(lambda x: eval(x))
+
+    analysis = join_results_by_id(analysis, ids=ids)
+    if trimmed_backtests is None:
+        trimmed_backtests = [
+            backtests_up_to_date(
+                backtests,
+                min_formation_period_start="1990/1/1",
+                max_trading_period_end="2000/01/01",
+            )
+            for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
+        ]
+    if type(descs) is str and os.path.isfile(descs):
+        descs = pd.read_parquet(descs)
+    elif descs is None:
+        # descs = p_map(descriptive_frame, trimmed_backtests, num_cpus=workers)
+        descs = [
+            descriptive_frame(backtests)
+            for backtests in tqdm(trimmed_backtests, desc="Desc frames")
+        ]
+        descs = pd.DataFrame(pd.Series(descs, index=analysis.index, name="descs"))
+
+    descs_interim = []
+    for experiment_idx in descs.index.get_level_values(0).unique(0):
+        descs_interim.append(descs.loc[experiment_idx])
+    analysis["descs"] = descs_interim
+
+    return analysis
+
+
+# /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis
 analysis = ray.tune.Analysis(
     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 ).dataframe()
+exp = load_experiment(
+    descs="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/1990-2000_descs.parquet",
+    ids=range(144),
+)
 
 
 def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_delta):
@@ -65,7 +115,7 @@ def best_config_in_timeframe(
     analysis: pd.DataFrame,
     start_date: str,
     end_date: str,
-    sort_by = 'Monthly profit',
+    sort_by="Monthly profit",
     backtests: pd.DataFrame = None,
     descs: pd.DataFrame = None,
 ):
@@ -116,44 +166,58 @@ def best_config_in_timeframe(
     return stats_df
 
 
-def analyse_top_n(analysis:pd.DataFrame, best_configs:pd.DataFrame, top_n:int=20, fixed_params:Dict= None):
+def analyse_top_n(
+    analysis: pd.DataFrame,
+    best_configs: pd.DataFrame,
+    top_n: int = 20,
+    fixed_params: Dict = None,
+):
     sorted_analysis = analysis.loc[best_configs.index]
     top_n_results = sorted_analysis.iloc[:top_n]
     if fixed_params is not None:
         sorted_analysis = find_scenario(top_n_results, params=fixed_params)
-        print(f"Analysis was narrowed down to {len(sorted_analysis)} due to fixed params")
-    average_aggregated = top_n_results["aggregated"].sum()/len(top_n_results["aggregated"])
+        print(
+            f"Analysis was narrowed down to {len(sorted_analysis)} due to fixed params"
+        )
+    average_aggregated = top_n_results["aggregated"].sum() / len(
+        top_n_results["aggregated"]
+    )
 
-    important_params = ["freq",
+    important_params = [
+        "freq",
         "lag",
         "txcost",
-        'jump',
-        'method',
-        'dist_num',
+        "jump",
+        "method",
+        "dist_num",
         "pairs_deltas",
         "confidence",
-        'threshold',
-        'stoploss']
+        "threshold",
+        "stoploss",
+    ]
 
     for param in important_params:
-        print(sorted_analysis["config/"+param].astype(str).value_counts())
+        print(sorted_analysis["config/" + param].astype(str).value_counts())
     return average_aggregated
 
-analysis = join_results_by_id(analysis)
-[
-    descriptive_frame(backtest)
-    for backtest in tqdm(
-        analysis["aggregated"].values, desc="Calculating descriptive frames"
-    )
-]
+
+analysis = join_results_by_id(analysis, ids=range(144))
+
 trimmed_backtests = [
     backtests_up_to_date(
         backtests,
         min_formation_period_start="1990/1/1",
         max_trading_period_end="2000/01/01",
     )
-    for backtests in tqdm(analysis["aggregated"], desc="Trimming backtests")
+    for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
 ]
+
+backtests_up_to_date(
+    analysis,
+    min_formation_period_start="1990/1/1",
+    max_trading_period_end="2000/01/01",
+)
+
 trimmed_backtests = pd.DataFrame(
     pd.Series(trimmed_backtests, index=analysis.index, name="trimmed_backtests")
 )
@@ -166,6 +230,10 @@ results = pd.DataFrame(pd.Series(results, index=analysis.index, name="descs"))
 
 # trimmed_backtests = p_map(partial(backtests_up_to_date, min_formation_period_start="1990/1/1", max_trading_period_end="2000/01/01"), analysis['aggregated'], num_cpus=40)
 
+with open(
+    "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis", "rb"
+) as f:
+    analysis = pickle.load(f)
 
 find_scenario(
     analysis,
@@ -184,4 +252,27 @@ aggregate(
 
 
 sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
-analyse_top_n(analysis, best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", 'Annualized Sharpe'), 20, {"lag":0})
+analyse_top_n(
+    analysis,
+    best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", "Annualized Sharpe"),
+    20,
+    {"lag": 0},
+)
+
+nya = '/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/NYA.csv'
+nya = pd.read_csv(nya)
+nya = nya.set_index('Date')
+nya.index = pd.to_datetime(nya.index)
+
+def nya_stats(nya:pd.DataFrame, start_date:str, end_date:str):
+    if type(end_date) is str:
+        end_date = pd.to_datetime(end_date)
+    if type(start_date) is str:
+        start_date = pd.to_datetime(start_date)
+
+    nya = nya.loc[start_date:end_date]
+    nya['Close'] = nya['Close']/nya["Close"].iloc[0]
+    nya["cumProfit"] = nya["Close"]
+    return nya
+
+nya_stats(nya, '1990/1/1', '2000/2/2')
