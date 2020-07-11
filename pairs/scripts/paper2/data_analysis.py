@@ -33,50 +33,8 @@ from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
 from pairs.scripts.latex.loaders import join_results_by_id
-from pairs.scripts.paper2.helpers import nya_stats
-
-
-def load_experiment(
-    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
-    ids=None,
-    trimmed_backtests=None,
-    descs=None,
-    workers=10,
-):
-    analysis = ray.tune.Analysis(experiment_dir=experiment_dir).dataframe().loc[ids]
-    analysis["pairs_deltas/formation_delta"] = analysis[
-        "pairs_deltas/formation_delta"
-    ].apply(lambda x: eval(x))
-    analysis["pairs_deltas/training_delta"] = analysis[
-        "pairs_deltas/training_delta"
-    ].apply(lambda x: eval(x))
-
-    analysis = join_results_by_id(analysis, ids=ids)
-    if trimmed_backtests is None:
-        trimmed_backtests = [
-            backtests_up_to_date(
-                backtests,
-                min_formation_period_start="1990/1/1",
-                max_trading_period_end="2000/01/01",
-            )
-            for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
-        ]
-    if type(descs) is str and os.path.isfile(descs):
-        descs = pd.read_parquet(descs)
-    elif descs is None:
-        # descs = p_map(descriptive_frame, trimmed_backtests, num_cpus=workers)
-        descs = [
-            descriptive_frame(backtests)
-            for backtests in tqdm(trimmed_backtests, desc="Desc frames")
-        ]
-        descs = pd.DataFrame(pd.Series(descs, index=analysis.index, name="descs"))
-
-    descs_interim = []
-    for experiment_idx in descs.index.get_level_values(0).unique(0):
-        descs_interim.append(descs.loc[experiment_idx])
-    analysis["descs"] = descs_interim
-
-    return analysis
+from pairs.scripts.paper2.helpers import ts_stats, nya_stats
+from pairs.scripts.paper2.loaders import load_experiment
 
 
 # /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis
@@ -259,20 +217,5 @@ analyse_top_n(
     {"lag": 0},
 )
 
-nya = '/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/NYA.csv'
-nya = pd.read_csv(nya)
-nya = nya.set_index('Date')
-nya.index = pd.to_datetime(nya.index)
 
-def nya_stats(nya:pd.DataFrame, start_date:str, end_date:str):
-    if type(end_date) is str:
-        end_date = pd.to_datetime(end_date)
-    if type(start_date) is str:
-        start_date = pd.to_datetime(start_date)
-
-    nya = nya.loc[start_date:end_date]
-    nya['Close'] = nya['Close']/nya["Close"].iloc[0]
-    nya["cumProfit"] = nya["Close"]
-    return nya
-
-nya_stats(nya, '1990/1/1', '2000/2/2')
+nya_stats(start_date='1990/1/1', end_date='2000/1/1')

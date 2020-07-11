@@ -20,17 +20,33 @@ from pairs.formatting import standardize_results, beautify
 from pairs.helpers import *
 
 
-def nya_stats(nya: pd.DataFrame, feasible, riskfree=0.02):
+def ts_stats(ts: pd.DataFrame, feasible=None, riskfree=0.02):
     """
     Args:
         btc ([type]): BTC time series with cumProfit as cumulative profit. Should be DAILY frequency!
     """
-    profit = nya.iloc[-1]["cumProfit"] - nya.iloc[0]["cumProfit"]
-    num_of_trading_days = (nya.index[-1] - nya.index[0]).days
+    if feasible is None:
+        feasible = [
+            "Monthly profit",
+            "Annual profit",
+            "Total profit",
+            "Annualized Sharpe",
+            "Trading period Sharpe",
+            "Number of trades",
+            "Roundtrip trades",
+            "Avg length of position",
+            "Pct of winning trades",
+            "Max drawdown",
+            "Nominated pairs",
+            "Traded pairs",
+        ]
+    profit = ts.iloc[-1]["cumProfit"] - ts.iloc[0]["cumProfit"]
+    num_of_trading_days = (ts.index[-1] - ts.index[0]).days
+    # num_of_trading_days = len(ts.index)
     num_of_trading_months = num_of_trading_days / 30
     monthly_profit = (1 + profit) ** (1 / num_of_trading_months)-1
-    max_drawdown = abs(drawdown(nya).min())
-    annualized_sd = profit ** ((num_of_trading_days / 360) ** 1 / 2)
+    max_drawdown = abs(drawdown(ts).min())
+    annualized_sd = ts['cumProfit'].std() ** ((num_of_trading_days / 360) ** 1 / 2)
     annualized_sharpe = (
         (1 + profit) ** (1 / (num_of_trading_days / 360)) - 1 - riskfree
     ) / annualized_sd
@@ -59,3 +75,18 @@ def nya_stats(nya: pd.DataFrame, feasible, riskfree=0.02):
     result = result.replace('nan', 'None').replace('nan\%', 'None')
 
     return result
+
+def nya_stats(start_date:str, end_date:str, nya_path:pd.DataFrame = '/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/NYA.csv'):
+    nya = pd.read_csv(nya_path)
+    nya = nya.set_index('Date')
+    nya.index = pd.to_datetime(nya.index)
+    if type(end_date) is str:
+        end_date = pd.to_datetime(end_date)
+    if type(start_date) is str:
+        start_date = pd.to_datetime(start_date)
+
+    nya = nya.loc[start_date:end_date]
+    nya['Close'] = nya['Close']/nya["Close"].iloc[0]
+    nya["cumProfit"] = nya["Close"]
+
+    return ts_stats(nya)
