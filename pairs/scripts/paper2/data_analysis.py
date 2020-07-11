@@ -186,12 +186,7 @@ results = [
 ]
 results = pd.DataFrame(pd.Series(results, index=analysis.index, name="descs"))
 
-# trimmed_backtests = p_map(partial(backtests_up_to_date, min_formation_period_start="1990/1/1", max_trading_period_end="2000/01/01"), analysis['aggregated'], num_cpus=40)
 
-with open(
-    "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis", "rb"
-) as f:
-    analysis = pickle.load(f)
 
 find_scenario(
     analysis,
