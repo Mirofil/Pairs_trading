@@ -41,7 +41,9 @@ def load_experiment(
     ids=None,
     trimmed_backtests=None,
     descs=None,
-    workers=10,
+    desired_start_date="1990/1/1",
+    desired_end_date="2000/01/01",
+    workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0)))),
 ):
     analysis = ray.tune.Analysis(experiment_dir=experiment_dir).dataframe().loc[ids]
     analysis["pairs_deltas/formation_delta"] = analysis[
@@ -53,27 +55,30 @@ def load_experiment(
 
     analysis = join_results_by_id(analysis, ids=ids)
     if trimmed_backtests is None:
-        trimmed_backtests = [
-            backtests_up_to_date(
-                backtests,
-                min_formation_period_start="1990/1/1",
-                max_trading_period_end="2000/01/01",
-            )
+        worker = partial(
+            backtests_up_to_date,
+            min_formation_period_start=desired_start_date,
+            max_trading_period_end=desired_end_date,
+        )
+        trimmed_backtests = Parallel(n_jobs=workers, verbose=1)(
+            delayed(worker)(backtests)
             for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
-        ]
+        )
     if type(descs) is str and os.path.isfile(descs):
         descs = pd.read_parquet(descs)
     elif descs is None:
         # descs = p_map(descriptive_frame, trimmed_backtests, num_cpus=workers)
-        descs = [
-            descriptive_frame(backtests)
+        descs = Parallel(n_jobs=workers, verbose=1)(
+            delayed(descriptive_frame)(backtests)
             for backtests in tqdm(trimmed_backtests, desc="Desc frames")
-        ]
+        )
         descs = pd.DataFrame(pd.Series(descs, index=analysis.index, name="descs"))
 
     descs_interim = []
     for experiment_idx in descs.index.get_level_values(0).unique(0):
         descs_interim.append(descs.loc[experiment_idx])
     analysis["descs"] = descs_interim
+
+    analysis["parent_id"] = analysis.index.values
 
     return analysis

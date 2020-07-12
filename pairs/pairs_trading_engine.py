@@ -18,7 +18,35 @@ from tqdm import tqdm
 from pairs.config import data_path
 from pairs.analysis import infer_periods
 from dateutil.relativedelta import relativedelta
+from functools import partial
+from p_tqdm import p_map
+from joblib import Parallel, delayed
 
+def change_txcost_in_backtests(backtests:pd.DataFrame, old_txcost, new_txcost, workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0))))):
+    pd.set_option('mode.chained_assignment', None)
+
+    backtests = backtests.copy(deep=True)
+    worker = partial(change_txcost_in_backtest, old_txcost=old_txcost, new_txcost=new_txcost)
+    shards = np.array_split(backtests, workers)
+    # for backtest_idx in tqdm(backtests.index.get_level_values(0).unique(0), desc='Going over backtests idxs'):
+    #     backtests.loc[backtest_idx] = change_txcost_in_backtest(backtests.loc[backtest_idx], old_txcost=old_txcost, new_txcost=new_txcost)
+
+    # backtests = p_map(worker, shards, num_cpus=workers)
+
+    result = Parallel(n_jobs=workers, verbose=1)(delayed(worker)(backtests.loc[backtest_idx]) for backtest_idx in backtests.index.get_level_values(0).unique(0))
+    return pd.concat(result, keys=range(len(backtests.index.get_level_values(0).unique(0))))
+
+def change_txcost_in_backtest(backtest:pd.DataFrame, old_txcost:float, new_txcost:float, copy=True):
+    if copy is True:
+        backtest=backtest.copy(deep=True)
+    trade_signals = ['Short', 'Long', 'Sell', 'sellShort', 'sellLong']
+    for pair in backtest.index.get_level_values('Pair').unique('Pair'):
+        mask = backtest.loc[pair, "Signals"].isin(trade_signals)
+        spread_beta_for_pair = backtest.loc[pair, "SpreadBeta"].iloc[0]
+        backtest.loc[pair].loc[mask, "Profit"] = backtest.loc[pair].loc[mask, "Profit"] + 1 * old_txcost + spread_beta_for_pair * old_txcost
+        backtest.loc[pair].loc[mask, "Profit"] = backtest.loc[pair].loc[mask, "Profit"] - 1 * new_txcost - spread_beta_for_pair * old_txcost
+        backtest.loc[pair, "cumProfit"] = (backtest.loc[pair, "Profit"].cumsum()+1).values
+    return backtest
 
 def pick_range(df: pd.DataFrame, start=None, end=None):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex

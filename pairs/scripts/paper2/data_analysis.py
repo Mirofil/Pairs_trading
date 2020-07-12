@@ -31,7 +31,7 @@ from pairs.formatting import beautify, standardize_results
 from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
-from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
+from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests
 from pairs.scripts.latex.loaders import join_results_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
 from pairs.scripts.paper2.loaders import load_experiment
@@ -46,6 +46,35 @@ exp = load_experiment(
     ids=range(144),
 )
 
+analysis.loc[0, 'backtests'].loc[0].loc['ZTRxNUV'].loc['1990/07/01':'1990-09-28']
+
+def find_original_ids(analysis:pd.DataFrame):
+    original_ids = []
+    for idx in analysis.index.get_level_values(0).unique(0):
+        if analysis.loc[idx, "parent_id"] == idx:
+            original_ids.append(idx)
+    return original_ids
+
+def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[float], original_only = True):
+    """Adds new rows to the Analysis DF by changing txcost inside the backtest DF (which is a fairly easy manipulation of the Profit calculation)"""
+    if original_only is True:
+        admissible_ids = find_original_ids(analysis)
+    else:
+        admissible_ids = analysis.index.values
+    
+    new_rows = []
+    for new_txcost in new_txcosts:
+        for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
+            generated = analysis.loc[admissible_id].copy(deep=True)
+            generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+            new_rows.append(generated)
+    
+    return new_rows
+
+change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+calculate_new_experiments_txcost(analysis, [0.000])
+change_txcost_in_backtest(backtest,0.05,0)
+
 
 def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_delta):
     formation = (
@@ -57,6 +86,7 @@ def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_de
 
 
 def find_scenario(analysis: pd.DataFrame, params: Dict):
+    """Using the analysis DF from Ray, returns only the rows that have config parameters matching the input params"""
     for param in params.keys():
         analysis = analysis.loc[analysis[param] == params[param]]
     return analysis
@@ -184,6 +214,7 @@ results = [
     descriptive_frame(backtests)
     for backtests in tqdm(trimmed_backtests, desc="Desc frames")
 ]
+results = Parallel(n_jobs=8,verbose=10)(delayed(descriptive_frame)(backtests) for backtests in tqdm(trimmed_backtests))
 results = pd.DataFrame(pd.Series(results, index=analysis.index, name="descs"))
 
 
