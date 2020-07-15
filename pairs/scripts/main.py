@@ -5,7 +5,7 @@ import datetime
 from dateutil.relativedelta import relativedelta
 from pairs.distancemethod import distance
 from pairs.helpers import data_path
-from pairs.cointmethod import cointegration, find_integrated
+from pairs.cointmethod import cointegration, find_integrated, cointegration_mixed
 from pairs.config import TradingUniverse
 from pairs.simulation import simulate
 from pairs.simulations_database import *
