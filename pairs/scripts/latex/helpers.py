@@ -16,7 +16,7 @@ from pairs.analysis import (aggregate, descriptive_frame, descriptive_stats,
 from pairs.cointmethod import *
 from pairs.config import paper1_univ
 from pairs.distancemethod import *
-from pairs.formatting import standardize_results
+from pairs.formatting import standardize_results, beautify
 from pairs.helpers import *
 
 

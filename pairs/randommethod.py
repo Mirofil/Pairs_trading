@@ -1,4 +1,5 @@
 from pairs.distancemethod import distance
+import pandas as pd
 import random
 
 def random_pairs(df: pd.DataFrame, num: int = 20, method="modern", show_progress_bar=True):

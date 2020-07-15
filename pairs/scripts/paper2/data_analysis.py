@@ -31,12 +31,49 @@ from pairs.formatting import beautify, standardize_results
 from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
-from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
+from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests
 from pairs.scripts.latex.loaders import join_results_by_id
+from pairs.scripts.paper2.helpers import ts_stats, nya_stats
+from pairs.scripts.paper2.loaders import load_experiment
 
+
+# /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis
 analysis = ray.tune.Analysis(
     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 ).dataframe()
+exp = load_experiment(
+    descs="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/1990-2000_descs.parquet",
+    ids=range(144),
+)
+
+analysis.loc[0, 'backtests'].loc[0].loc['ZTRxNUV'].loc['1990/07/01':'1990-09-28']
+
+def find_original_ids(analysis:pd.DataFrame):
+    original_ids = []
+    for idx in analysis.index.get_level_values(0).unique(0):
+        if analysis.loc[idx, "parent_id"] == idx:
+            original_ids.append(idx)
+    return original_ids
+
+def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[float], original_only = True):
+    """Adds new rows to the Analysis DF by changing txcost inside the backtest DF (which is a fairly easy manipulation of the Profit calculation)"""
+    if original_only is True:
+        admissible_ids = find_original_ids(analysis)
+    else:
+        admissible_ids = analysis.index.values
+    
+    new_rows = []
+    for new_txcost in new_txcosts:
+        for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
+            generated = analysis.loc[admissible_id].copy(deep=True)
+            generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+            new_rows.append(generated)
+    
+    return new_rows
+
+change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+calculate_new_experiments_txcost(analysis, [0.000])
+change_txcost_in_backtest(backtest,0.05,0)
 
 
 def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_delta):
@@ -49,6 +86,7 @@ def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_de
 
 
 def find_scenario(analysis: pd.DataFrame, params: Dict):
+    """Using the analysis DF from Ray, returns only the rows that have config parameters matching the input params"""
     for param in params.keys():
         analysis = analysis.loc[analysis[param] == params[param]]
     return analysis
@@ -65,7 +103,7 @@ def best_config_in_timeframe(
     analysis: pd.DataFrame,
     start_date: str,
     end_date: str,
-    sort_by = 'Monthly profit',
+    sort_by="Monthly profit",
     backtests: pd.DataFrame = None,
     descs: pd.DataFrame = None,
 ):
@@ -116,44 +154,58 @@ def best_config_in_timeframe(
     return stats_df
 
 
-def analyse_top_n(analysis:pd.DataFrame, best_configs:pd.DataFrame, top_n:int=20, fixed_params:Dict= None):
+def analyse_top_n(
+    analysis: pd.DataFrame,
+    best_configs: pd.DataFrame,
+    top_n: int = 20,
+    fixed_params: Dict = None,
+):
     sorted_analysis = analysis.loc[best_configs.index]
     top_n_results = sorted_analysis.iloc[:top_n]
     if fixed_params is not None:
         sorted_analysis = find_scenario(top_n_results, params=fixed_params)
-        print(f"Analysis was narrowed down to {len(sorted_analysis)} due to fixed params")
-    average_aggregated = top_n_results["aggregated"].sum()/len(top_n_results["aggregated"])
+        print(
+            f"Analysis was narrowed down to {len(sorted_analysis)} due to fixed params"
+        )
+    average_aggregated = top_n_results["aggregated"].sum() / len(
+        top_n_results["aggregated"]
+    )
 
-    important_params = ["freq",
+    important_params = [
+        "freq",
         "lag",
         "txcost",
-        'jump',
-        'method',
-        'dist_num',
+        "jump",
+        "method",
+        "dist_num",
         "pairs_deltas",
         "confidence",
-        'threshold',
-        'stoploss']
+        "threshold",
+        "stoploss",
+    ]
 
     for param in important_params:
-        print(sorted_analysis["config/"+param].astype(str).value_counts())
+        print(sorted_analysis["config/" + param].astype(str).value_counts())
     return average_aggregated
 
-analysis = join_results_by_id(analysis)
-[
-    descriptive_frame(backtest)
-    for backtest in tqdm(
-        analysis["aggregated"].values, desc="Calculating descriptive frames"
-    )
-]
+
+analysis = join_results_by_id(analysis, ids=range(144))
+
 trimmed_backtests = [
     backtests_up_to_date(
         backtests,
         min_formation_period_start="1990/1/1",
         max_trading_period_end="2000/01/01",
     )
-    for backtests in tqdm(analysis["aggregated"], desc="Trimming backtests")
+    for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
 ]
+
+backtests_up_to_date(
+    analysis,
+    min_formation_period_start="1990/1/1",
+    max_trading_period_end="2000/01/01",
+)
+
 trimmed_backtests = pd.DataFrame(
     pd.Series(trimmed_backtests, index=analysis.index, name="trimmed_backtests")
 )
@@ -162,9 +214,9 @@ results = [
     descriptive_frame(backtests)
     for backtests in tqdm(trimmed_backtests, desc="Desc frames")
 ]
+results = Parallel(n_jobs=8,verbose=10)(delayed(descriptive_frame)(backtests) for backtests in tqdm(trimmed_backtests))
 results = pd.DataFrame(pd.Series(results, index=analysis.index, name="descs"))
 
-# trimmed_backtests = p_map(partial(backtests_up_to_date, min_formation_period_start="1990/1/1", max_trading_period_end="2000/01/01"), analysis['aggregated'], num_cpus=40)
 
 
 find_scenario(
@@ -184,4 +236,16 @@ aggregate(
 
 
 sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
+<<<<<<< HEAD
 analyse_top_n(analysis, best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", 'Annualized Sharpe'), 20, {"lag":0})
+=======
+analyse_top_n(
+    analysis,
+    best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", "Annualized Sharpe"),
+    20,
+    {"lag": 0},
+)
+
+
+nya_stats(start_date='1990/1/1', end_date='2000/1/1')
+>>>>>>> 7100debeb34d6de1596e2d32e528a967662bd4c4
