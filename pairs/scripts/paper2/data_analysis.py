@@ -31,45 +31,25 @@ from pairs.formatting import beautify, standardize_results
 from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
-from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests
+from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests, calculate_new_experiments_txcost
 from pairs.scripts.latex.loaders import join_results_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
 from pairs.scripts.paper2.loaders import load_experiment
+from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern
+
 
 
 # /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis
-analysis = ray.tune.Analysis(
-    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
-).dataframe()
-exp = load_experiment(
-    descs="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/1990-2000_descs.parquet",
-    ids=range(144),
-)
+# analysis = ray.tune.Analysis(
+#     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
+# ).dataframe()
+all_subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
+
+for period in all_subperiods:   
+    exp = load_experiment(subperiod=nineties, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005])
 
 analysis.loc[0, 'backtests'].loc[0].loc['ZTRxNUV'].loc['1990/07/01':'1990-09-28']
 
-def find_original_ids(analysis:pd.DataFrame):
-    original_ids = []
-    for idx in analysis.index.get_level_values(0).unique(0):
-        if analysis.loc[idx, "parent_id"] == idx:
-            original_ids.append(idx)
-    return original_ids
-
-def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[float], original_only = True):
-    """Adds new rows to the Analysis DF by changing txcost inside the backtest DF (which is a fairly easy manipulation of the Profit calculation)"""
-    if original_only is True:
-        admissible_ids = find_original_ids(analysis)
-    else:
-        admissible_ids = analysis.index.values
-    
-    new_rows = []
-    for new_txcost in new_txcosts:
-        for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
-            generated = analysis.loc[admissible_id].copy(deep=True)
-            generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
-            new_rows.append(generated)
-    
-    return new_rows
 
 change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
 calculate_new_experiments_txcost(analysis, [0.000])
@@ -236,9 +216,6 @@ aggregate(
 
 
 sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
-<<<<<<< HEAD
-analyse_top_n(analysis, best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", 'Annualized Sharpe'), 20, {"lag":0})
-=======
 analyse_top_n(
     analysis,
     best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", "Annualized Sharpe"),
@@ -248,4 +225,3 @@ analyse_top_n(
 
 
 nya_stats(start_date='1990/1/1', end_date='2000/1/1')
->>>>>>> 7100debeb34d6de1596e2d32e528a967662bd4c4

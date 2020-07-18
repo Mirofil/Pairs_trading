@@ -134,8 +134,8 @@ coint_head = pick_range(preprocessed, formation[0], formation[1])
 # k = cointegration(find_integrated(coint_head, num_of_processes=1), num_of_processes=1)
 head = pick_range(preprocessed, formation[0], formation[1])
 distances = distance(head, num=2000, method='modern')
-cointed = find_integrated(coint_head)
-k = cointegration_mixed(cointed, distances["viable_pairs"])
+cointed = find_integrated(coint_head, confidence=0.1)
+k = cointegration_mixed(cointed, distances["viable_pairs"], confidence=0.1, desired_num=400)
 # k = cointegration(cointed)
 
 end = datetime.datetime.now()
@@ -188,6 +188,9 @@ start = datetime.datetime.now()
 calculate_profit(coint_signal, cost=0.003)
 end = datetime.datetime.now()
 print("Profit calculation was done in: " + str(end - start))
+
+print(descriptive_stats(coint_signal))
+print(descriptive_stats(coint_signal).mean())
 #%%
 # DISTANCE TESTING
 # we take timeframe corresponding to Formation period when finding the lowest SSDs

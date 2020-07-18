@@ -26,28 +26,29 @@ from pairs.datasets.crypto_dataset import CryptoDataset
 from pairs.datasets.us_dataset import USDataset
 from pairs.analysis import descriptive_frame, descriptive_stats
 
-# univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/', tracking_uri="http://0.0.0.0:5000",
-#         start_date=[2007, 1, 1],
-#         end_date=[2008, 1, 1],show_progress_bar=True)
+univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/nyse/', tracking_uri="http://0.0.0.0:5000",
+        start_date=[1990, 1, 1],
+        end_date=[1991, 1, 1],show_progress_bar=True)
 
-# config=generate_scenario(
-#         freq="1D",
-#         lag=1,
-#         txcost=0.003,
-#         pairs_deltas={'formation_delta':[6,0,0], 'training_delta':[3,0,0]},
-#         jump=[1, 0, 0],
-#         method="dist",
-#         dist_num=20,
-#         threshold=2,
-#         stoploss=100,
-#         redo_prefiltered=True,
-#         redo_preprocessed=True,
-#         truncate=True,
-#         trading_univ=univ,
-#         dataset=USDataset(config=univ)
-#     )
+config=generate_scenario(
+        freq="1D",
+        lag=1,
+        txcost=0.003,
+        pairs_deltas={'formation_delta':[6,0,0], 'training_delta':[3,0,0]},
+        jump=[1, 0, 0],
+        method="coint",
+        dist_num=5,
+        threshold=2,
+        confidence=0.1,
+        stoploss=100,
+        redo_prefiltered=True,
+        redo_preprocessed=True,
+        truncate=True,
+        trading_univ=univ,
+        dataset=USDataset(config=univ)
+    )
 
-# simulate(config)
+simulate(config)
 
 if __name__ == "__main__":
     ray.init(
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     )
 
     univ = TradingUniverse(
-        data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/amex/",
+        data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/amex/",
         tracking_uri="http://0.0.0.0:5000",
         start_date=[1990, 1, 1],
         end_date=[1991, 1, 1],
@@ -77,9 +78,10 @@ if __name__ == "__main__":
             txcost=0.003,
             pairs_deltas = tune.grid_search([{"training_delta":[3,0,0], "formation_delta":[6,0,0]}]),
             jump=[1, 0, 0],
-            method="dist",
+            method="coint",
             dist_num=tune.grid_search([5]),
-            threshold=tune.grid_search([3,2]),
+            threshold=tune.grid_search([3]),
+            confidence=tune.grid_search([0.01,0.05]),
             stoploss=0,
             redo_prefiltered=True,
             redo_preprocessed=True,

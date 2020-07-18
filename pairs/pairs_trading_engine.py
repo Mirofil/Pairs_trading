@@ -22,16 +22,19 @@ from functools import partial
 from p_tqdm import p_map
 from joblib import Parallel, delayed
 
+def find_original_ids(analysis:pd.DataFrame):
+    original_ids = []
+    for idx in analysis.index.get_level_values(0).unique(0):
+        if analysis.loc[idx, "parent_id"] == idx:
+            original_ids.append(idx)
+    return original_ids
+
 def change_txcost_in_backtests(backtests:pd.DataFrame, old_txcost, new_txcost, workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0))))):
     pd.set_option('mode.chained_assignment', None)
 
-    backtests = backtests.copy(deep=True)
+    # backtests = backtests.copy(deep=True)
     worker = partial(change_txcost_in_backtest, old_txcost=old_txcost, new_txcost=new_txcost)
     shards = np.array_split(backtests, workers)
-    # for backtest_idx in tqdm(backtests.index.get_level_values(0).unique(0), desc='Going over backtests idxs'):
-    #     backtests.loc[backtest_idx] = change_txcost_in_backtest(backtests.loc[backtest_idx], old_txcost=old_txcost, new_txcost=new_txcost)
-
-    # backtests = p_map(worker, shards, num_cpus=workers)
 
     result = Parallel(n_jobs=workers, verbose=1)(delayed(worker)(backtests.loc[backtest_idx]) for backtest_idx in backtests.index.get_level_values(0).unique(0))
     return pd.concat(result, keys=range(len(backtests.index.get_level_values(0).unique(0))))
@@ -48,21 +51,26 @@ def change_txcost_in_backtest(backtest:pd.DataFrame, old_txcost:float, new_txcos
         backtest.loc[pair, "cumProfit"] = (backtest.loc[pair, "Profit"].cumsum()+1).values
     return backtest
 
+def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[float], original_only = True):
+    """Adds new rows to the Analysis DF by changing txcost inside the backtest DF (which is a fairly easy manipulation of the Profit calculation)"""
+    if original_only is True:
+        admissible_ids = find_original_ids(analysis)
+    else:
+        admissible_ids = analysis.index.values
+    
+    new_rows = []
+    for new_txcost in new_txcosts:
+        for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
+            generated = analysis.loc[admissible_id].copy(deep=True)
+            generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+            new_rows.append(generated)
+    
+    return new_rows
+
 def pick_range(df: pd.DataFrame, start=None, end=None):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex
     DF should have index of the shape TICKER-TIME"""
-    # There is a bug when the end is past the preprocessed length, one index of the level disappears?
 
-    # if timeframe[1] in df.loc[name].index:
-    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1])
-    # elif timeframe[1] - datetime.timedelta(days=1) in df.loc[name].index:
-    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1] - datetime.timedelta(days=1))
-    # elif timeframe[1] - datetime.timedelta(days=2) in df.loc[name].index:
-    #     end_of_formation = df.loc[name].index.get_loc(timeframe[1] - datetime.timedelta(days=2))
-
-    # past_start = df.index.levels[1] > pd.to_datetime(start)
-    # before_end = df.index.levels[1] <= pd.to_datetime(end)
-    # mask = (past_start) & (before_end)
     new_df = []
     for ticker in df.index.unique(0):
         interim = df.loc[ticker]
@@ -321,7 +329,10 @@ def calculate_spreads(df, viable_pairs, timeframe, betas=None, show_progress_bar
         ).values
 
         spreads.append(newdf)
-    return pd.concat(spreads)
+    if len(spreads) == 0:
+        return pd.DataFrame(spreads)
+    else:
+        return pd.concat(spreads)
 
 
 def nearest(items, pivot):

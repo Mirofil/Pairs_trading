@@ -41,7 +41,7 @@ def corrs(df):
     return (arr, ps)
 
 
-def infer_periods(single_backtest_df: pd.DataFrame):
+def infer_periods(single_backtest_df: pd.DataFrame, trading_delta = None):
     """Auto detects the Formation and Trading periods
     Works even with MultiIndexed since the periods are the same across all pairs"""
     trading_period_mask = ~(
@@ -52,14 +52,6 @@ def infer_periods(single_backtest_df: pd.DataFrame):
     formation_mask = single_backtest_df["Signals"] == "Formation"
     # All pairs should have the same trading/formation periods so it does not matter which ones we pick
     example_pair = trading_period_mask.index.get_level_values(0)[0]
-    trading_period = trading_period_mask.loc[(example_pair, slice(None))].loc[
-        trading_period_mask.loc[(example_pair, slice(None))].values
-    ]
-    trading = (
-        trading_period.index.get_level_values("Time")[0],
-        trading_period.index.get_level_values("Time")[-1],
-    )
-
     formation_period = formation_mask.loc[(example_pair, slice(None))].loc[
         formation_mask.loc[(example_pair, slice(None))].values
     ]
@@ -67,6 +59,19 @@ def infer_periods(single_backtest_df: pd.DataFrame):
         formation_period.index.get_level_values("Time")[0],
         formation_period.index.get_level_values("Time")[-1],
     )
+    if trading_delta is None:
+        trading_period = trading_period_mask.loc[(example_pair, slice(None))].loc[
+            trading_period_mask.loc[(example_pair, slice(None))].values
+        ]
+        trading = (
+            trading_period.index.get_level_values("Time")[0],
+            trading_period.index.get_level_values("Time")[-1],
+        )
+    else:
+        trading = (
+            formation[1],
+            formation[1] + trading_delta,
+        )
 
     return {"formation": formation, "trading": trading}
 
@@ -108,9 +113,13 @@ def descriptive_stats(
             "Max drawdown",
         ],
     )
-    periods = infer_periods(single_backtest_df)
-    trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
-    trading_timeframe = periods["trading"]
+    if trading_timeframe is None:
+        periods = infer_periods(single_backtest_df)
+        trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
+        trading_timeframe = periods["trading"]
+    else:
+        trading_days = abs((trading_timeframe[0] - trading_timeframe[1]).days)
+
     annualizer = 365 / trading_days
     monthlizer = 30 / trading_days
     risk_free = risk_free / annualizer
@@ -195,7 +204,7 @@ def descriptive_stats(
     return stats
 
 
-def descriptive_frame(olddf, show_progress_bar=False):
+def descriptive_frame(olddf, show_progress_bar=False, trading_delta=None):
     # this should be a subset of the statistics from descriptive_stats I think
     diag = [
         "Monthly profit",
@@ -229,10 +238,11 @@ def descriptive_frame(olddf, show_progress_bar=False):
         df.groupby(level=0), desc="Constructing descriptive frames over backtests", disable= not show_progress_bar
     ):
         backtest_index = int(backtest_index)
-        # test_pair = olddf.loc[backtest_index].index.unique(level=0)[0]
+        trading_timeframe=infer_periods(olddf.loc[backtest_index], trading_delta=trading_delta)["trading"]
+
         stats = descriptive_stats(
             olddf.loc[backtest_index],
-            trading_timeframe=infer_periods(olddf.loc[backtest_index])["trading"],
+            trading_timeframe=trading_timeframe,
         )
         for col in df.loc[backtest_index].columns:
             df.loc[idx[backtest_index, :], col] = stats[col].values
