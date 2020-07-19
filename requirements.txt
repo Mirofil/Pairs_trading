@@ -19,3 +19,4 @@ mlflowhelper
 retry
 joblib
 p-tqdm
+loguru

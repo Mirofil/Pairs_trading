@@ -25,7 +25,7 @@ from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
 
-def join_results_by_id(analysis: pd.DataFrame, ids: List[int] = None):
+def join_backtests_by_id(analysis: pd.DataFrame, ids: List[int] = None):
     """Adds the raw backtests column to analysis DF """
     loaded_results = []
     if ids is None:

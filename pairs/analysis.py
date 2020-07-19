@@ -68,13 +68,30 @@ def infer_periods(single_backtest_df: pd.DataFrame, trading_delta = None):
             trading_period.index.get_level_values("Time")[-1],
         )
     else:
-        trading = (
+        trading = [
             formation[1],
             formation[1] + trading_delta,
-        )
+        ]
+        if trading[1] not in single_backtest_df.index.get_level_values("Time"):
+            trading[1] = single_backtest_df.index.get_level_values("Time")[single_backtest_df.loc[example_pair].index.get_level_values("Time").get_loc(trading[1], method='nearest')]
 
     return {"formation": formation, "trading": trading}
 
+def find_scenario(analysis: pd.DataFrame, params: Dict, negate=False):
+    """Using the analysis DF from Ray, returns only the rows that have config parameters matching the input params
+
+    Args:
+        analysis (pd.DataFrame): Ray experiment DF
+        params (Dict): Dict of COL:VAL that you want to exclude
+        negate (bool, optional): Whether should return the ones that mathc (if False) or ones that DONT match (if True). Defaults to False.
+
+    """
+    for param in params.keys():
+        if negate is False:
+            analysis = analysis.loc[analysis[param] == params[param]]
+        elif negate is True:
+            analysis = analysis.loc[~(analysis[param] == params[param])]
+    return analysis
 
 def descriptive_stats(
     single_backtest_df: pd.DataFrame,
@@ -328,14 +345,15 @@ def aggregate(
 
     for i in range(len(descriptive_frames)):
         desc_frame = descriptive_frames[i]
+        number_of_dataframes = desc_frame.index[-1][0] + 1
         num_nominated = len(desc_frame.index.get_level_values(level=1)) / (
-            desc_frame.index[-1][0] + 1
+            number_of_dataframes
         )
         number_of_trades = len(
             desc_frame[desc_frame["Number of trades"] > 0].index.get_level_values(
                 level=1
             )
-        ) / (desc_frame.index[-1][0] + 1)
+        ) / (number_of_dataframes)
         if returns_nonzero == True:
             desc_frame.loc[
                 desc_frame["Number of trades"] == 0,

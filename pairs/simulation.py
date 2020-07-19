@@ -1,4 +1,3 @@
-#%%
 import datetime
 import os
 from typing import *
@@ -111,12 +110,18 @@ def simulate(
             start_date + formation_delta + i * jump_delta,
         )
         trading = (formation[1], formation[1] + trading_delta)
+        print(i)
+        print(formation)
+        print(trading)
         if trading[1] > end_date:
             if truncate == True:
                 trading = (trading[0], end_date)
             else:
                 break
         if trading[1] < formation[1]:
+            break
+
+        if trading[0] >= end_date:
             break
 
         if redo_prefiltered == True:
@@ -183,7 +188,7 @@ def simulate(
             distances = distance(head, num=200000, method="modern")
             cointed = find_integrated(head, confidence=confidence, show_progress_bar=show_progress_bar)
             if len(cointed) == 0:
-                c
+                continue
             k = cointegration_mixed(
                 cointed,
                 distances["viable_pairs"],

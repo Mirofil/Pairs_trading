@@ -38,7 +38,7 @@ config=generate_scenario(
         jump=[1, 0, 0],
         method="coint",
         dist_num=5,
-        threshold=2,
+        threshold=5,
         confidence=0.1,
         stoploss=100,
         redo_prefiltered=True,
@@ -49,6 +49,32 @@ config=generate_scenario(
     )
 
 simulate(config)
+
+
+univ = TradingUniverse(data_path='/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/nyse/', tracking_uri="http://0.0.0.0:5000",
+        start_date=[2019, 1, 1],
+        end_date=[2020, 1, 1],show_progress_bar=True)
+
+config=generate_scenario(
+        freq="1D",
+        lag=1,
+        txcost=0.003,
+        pairs_deltas={'formation_delta':[2,0,0], 'training_delta':[1,0,0]},
+        jump=[2, 0, 0],
+        method="coint",
+        dist_num=5,
+        threshold=0.5,
+        confidence=0.01,
+        stoploss=100,
+        redo_prefiltered=True,
+        redo_preprocessed=True,
+        truncate=True,
+        trading_univ=univ,
+        dataset=USDataset(config=univ)
+    )
+
+simulate(config)
+
 
 if __name__ == "__main__":
     ray.init(
@@ -90,3 +116,4 @@ if __name__ == "__main__":
             dataset=USDataset(config=univ),
         ),
     )
+

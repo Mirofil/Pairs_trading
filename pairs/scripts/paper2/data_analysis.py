@@ -32,9 +32,9 @@ from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests, calculate_new_experiments_txcost
-from pairs.scripts.latex.loaders import join_results_by_id
+from pairs.scripts.latex.loaders import join_backtests_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
-from pairs.scripts.paper2.loaders import load_experiment
+from pairs.scripts.paper2.loaders import process_experiment, load_experiment
 from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern
 
 
@@ -43,10 +43,15 @@ from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, 
 # analysis = ray.tune.Analysis(
 #     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 # ).dataframe()
-all_subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
+all_subperiods = [nineties,dotcom, inbetween_crises, financial_crisis, modern]
 
 for period in all_subperiods:   
-    exp = load_experiment(subperiod=nineties, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005])
+    exp = process_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005])
+
+
+period = dotcom
+analysis = load_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005])
+
 
 analysis.loc[0, 'backtests'].loc[0].loc['ZTRxNUV'].loc['1990/07/01':'1990-09-28']
 
@@ -65,13 +70,6 @@ def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_de
     return {"formation": formation, "trading": trading}
 
 
-def find_scenario(analysis: pd.DataFrame, params: Dict):
-    """Using the analysis DF from Ray, returns only the rows that have config parameters matching the input params"""
-    for param in params.keys():
-        analysis = analysis.loc[analysis[param] == params[param]]
-    return analysis
-
-
 def sort_aggs_by_stat(aggs, stat):
     """Returns the indices that would sort aggregateds by the desired statistic (Monthly profit, ..) """
     aggs = aggs.apply(lambda y: y.loc[stat]).values
@@ -79,21 +77,12 @@ def sort_aggs_by_stat(aggs, stat):
     return aggs
 
 
-def best_config_in_timeframe(
+def compute_aggregated_and_find_best_config(
     analysis: pd.DataFrame,
-    start_date: str,
-    end_date: str,
     sort_by="Monthly profit",
-    backtests: pd.DataFrame = None,
     descs: pd.DataFrame = None,
 ):
-    if type(start_date) is str:
-        start_date = pd.to_datetime(start_date)
 
-    if type(end_date) is str:
-        end_date = pd.to_datetime(end_date)
-    if backtests is None:
-        backtests = analysis["backtests"]
     if descs is None:
         descs = analysis["descs"]
 
@@ -169,7 +158,7 @@ def analyse_top_n(
     return average_aggregated
 
 
-analysis = join_results_by_id(analysis, ids=range(144))
+analysis = join_backtests_by_id(analysis, ids=range(144))
 
 trimmed_backtests = [
     backtests_up_to_date(
@@ -208,7 +197,7 @@ find_scenario(
         "pairs_deltas/formation_delta": "[6, 0, 0]",
     },
 )
-best_configs = best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1")
+best_configs = compute_aggregated_and_find_best_config(analysis)
 
 aggregate(
     [results[78]], None, [60], [["Daily"], ["Dist"]]
@@ -218,7 +207,7 @@ aggregate(
 sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
 analyse_top_n(
     analysis,
-    best_config_in_timeframe(analysis, "1995/1/1", "2000/1/1", "Annualized Sharpe"),
+    compute_aggregated_and_find_best_config(analysis, "1995/1/1", "2000/1/1", "Annualized Sharpe"),
     20,
     {"lag": 0},
 )

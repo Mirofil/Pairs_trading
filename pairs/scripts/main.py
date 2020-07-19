@@ -171,7 +171,7 @@ print("Signals were done in: " + str(end - start))
 #%%
 start = datetime.datetime.now()
 coint_signal = signals(
-    coint_signal, start_date=start_date, end_date=end_date, trading_timeframe=trading, formation=formation, lag=1, num_of_processes=1
+    coint_signal, start_date=start_date, end_date=end_date, trading_timeframe=trading, formation=formation, lag=1, num_of_processes=1, threshold=50
 )
 weights_from_signals(coint_signal, cost=0.003)
 end = datetime.datetime.now()
