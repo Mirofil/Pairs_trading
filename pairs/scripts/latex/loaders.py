@@ -24,20 +24,3 @@ from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
 from pairs.pairs_trading_engine import pick_range, backtests_up_to_date
-
-def join_backtests_by_id(analysis: pd.DataFrame, ids: List[int] = None):
-    """Adds the raw backtests column to analysis DF """
-    loaded_results = []
-    if ids is None:
-        ids = analysis.index
-    for id in tqdm(ids, desc="Loading backtests by id"):
-        # note that aggregated.parquet is acutally more like rhc/backtests kind of thing
-        loaded_results.append(
-            pd.read_parquet(
-                os.path.join(analysis.loc[id, "logdir"], "aggregated.parquet")
-            )
-        )
-
-    interim = pd.Series(loaded_results, index=ids)
-    interim.name = "backtests"
-    return analysis.join(interim)

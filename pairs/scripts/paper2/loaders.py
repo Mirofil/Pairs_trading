@@ -38,11 +38,26 @@ from pairs.pairs_trading_engine import (
     calculate_new_experiments_txcost,
     find_original_ids,
 )
-from pairs.scripts.latex.loaders import join_backtests_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
 from pairs.scripts.paper2.subperiods import Subperiod
 from pairs.analysis import find_scenario
 
+def join_backtests_by_id(analysis: pd.DataFrame, ids: List[int] = None):
+    """Adds the raw backtests column to analysis DF """
+    loaded_results = []
+    if ids is None:
+        ids = analysis.index
+    for id in tqdm(ids, desc="Loading backtests by id"):
+        # note that aggregated.parquet is acutally more like rhc/backtests kind of thing
+        loaded_results.append(
+            pd.read_parquet(
+                os.path.join(analysis.loc[id, "logdir"], "aggregated.parquet")
+            )
+        )
+
+    interim = pd.Series(loaded_results, index=ids)
+    interim.name = "backtests"
+    return analysis.join(interim)
 
 def load_analysis_dataframe(
     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
@@ -70,10 +85,10 @@ def load_descs_from_parquet(fpath):
     reshaped_descs= []
     for run_idx in descs.index.get_level_values(0).unique(0):
         candidate = descs.loc[run_idx]
-        candidate.index = pd.MultiIndex.from_product([[0], candidate.index])
+        # candidate.index = pd.MultiIndex.from_product([[0], candidate.index])
         reshaped_descs.append(candidate)
-    descs = pd.DataFrame(pd.Series(reshaped_descs, index=range(len(reshaped_descs))), columns=["descs"])
-    return descs
+    # descs = pd.DataFrame(pd.Series(reshaped_descs, index=range(len(reshaped_descs))), columns=["descs"])
+    return reshaped_descs
 
 def load_experiment(
     subperiod: Subperiod,
@@ -105,7 +120,7 @@ def load_experiment(
         analysis = analysis.append(new_rows)
         analysis = analysis.reset_index()
 
-    analysis["descs"]=load_descs_from_parquet(os.path.join(experiment_dir, f"{subperiod.name}_descs.parquet"))
+    analysis["descs"]=load_descs_from_parquet(fpath=os.path.join(experiment_dir, f"{subperiod.name}_descs.parquet"))
 
     return analysis
 
@@ -194,12 +209,9 @@ def process_experiment(
             for backtests in tqdm(analysis["backtests"], desc="Desc frames")
         )
         descs = pd.DataFrame(pd.Series(descs, index=analysis.index, name="descs"))
-        descs = pd.DataFrame(
-            pd.concat(
-                [desc.iloc[0] for desc in descs["descs"]], keys=range(len(descs))
-            ),
-            columns=["descs"],
-        )
+        descs = pd.concat(
+                [descs["descs"].loc[idx] for idx in descs["descs"].index], keys=range(len(descs))
+            )
 
         logger.info(
             f"Saving subperiod {subperiod.name} at {os.path.join(experiment_dir, subperiod.name + '_descs.parquet')}"

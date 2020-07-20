@@ -345,15 +345,15 @@ def aggregate(
 
     for i in range(len(descriptive_frames)):
         desc_frame = descriptive_frames[i]
-        number_of_dataframes = desc_frame.index[-1][0] + 1
+        number_of_backtests = len(desc_frame.index.get_level_values(level=0).unique(0))
         num_nominated = len(desc_frame.index.get_level_values(level=1)) / (
-            number_of_dataframes
+            number_of_backtests
         )
         number_of_trades = len(
             desc_frame[desc_frame["Number of trades"] > 0].index.get_level_values(
                 level=1
             )
-        ) / (number_of_dataframes)
+        ) / (number_of_backtests)
         if returns_nonzero == True:
             desc_frame.loc[
                 desc_frame["Number of trades"] == 0,
