@@ -35,7 +35,7 @@ from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_
 from pairs.scripts.paper2.loaders import join_backtests_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
 from pairs.scripts.paper2.loaders import process_experiment, load_experiment
-from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern
+from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern, all_history
 from pairs.analysis import find_scenario
 from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_top_n
 
@@ -44,20 +44,26 @@ from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_
 # analysis = ray.tune.Analysis(
 #     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 # ).dataframe()
-all_subperiods = [nineties,dotcom, inbetween_crises, financial_crisis, modern]
 
-for period in all_subperiods:   
-    exp = process_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005, 0.01, 0.02])
+subperiods = [nineties,dotcom, inbetween_crises, financial_crisis, modern, all_history]
+new_txcosts = [0,0.005, 0.01, 0.02]
+all_lags = [0, 1]
 
+for period in subperiods:   
+    process_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
 
-period = dotcom
-analysis = load_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=[0,0.005, 0.01, 0.02])
+for period in subperiods:
+    period.analysis = load_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
+
+period = modern
+analysis = load_experiment(subperiod=period, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
+
 # sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
-analyse_top_n(
+anal = analyse_top_n(
     analysis,
-    compute_aggregated_and_find_best_config(analysis, sort_by="Annualized Sharpe"),
-    top_n=20,
-    fixed_params_before={"lag": 1, "config/txcost":0.005},
+    compute_aggregated_and_find_best_config(analysis, sort_by="Monthly profit"),
+    top_n=10,
+    fixed_params_before={"lag": 1, "config/txcost":0.003, "dist_num":20},
 )
 
 
@@ -77,12 +83,64 @@ aggregate(
 )  # this is benchmark literature conf
 
 
-# sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
+
+def all_periods_summary(subperiods, new_txcosts, top_n=10, fixed_params_before={"lag": 1, "config/txcost":0.003}, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", sort_by='Annualized Sharpe'):
+
+    aggregateds = []
+    param_avgs = []
+    for period in subperiods:
+        analysis = load_experiment(subperiod=period, experiment_dir=experiment_dir, new_txcosts=new_txcosts)
+        
+        top_n_analysis = analyse_top_n(
+            analysis=analysis,
+            best_configs=compute_aggregated_and_find_best_config(analysis, sort_by=sort_by),
+            top_n=top_n,
+            fixed_params_before=fixed_params_before,
+        )
+        aggregateds.append(top_n_analysis['agg_avg'])
+        param_avgs.append(pd.Series(top_n_analysis["param_avgs"]))
+
+    aggregateds = pd.concat(aggregateds, axis=1, keys=[subperiod.name for subperiod in subperiods])
+    param_avgs = pd.concat(param_avgs, axis=1, keys=[subperiod.name for subperiod in subperiods])
+
+    return {"aggregateds":aggregateds, "param_avgs":param_avgs}
+
+def lag_txcost_summary(subperiods, all_txcosts, all_lags, top_n=10, fixed_params_before={"lag": 1, "config/txcost":0.003}, experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", sort_by='Annualized Sharpe'):
+
+    table = pd.DataFrame([], index = all_lags, columns = all_txcosts)
+
+    aggregateds = []
+    param_avgs = []
+    for period in subperiods:
+        analysis = load_experiment(subperiod=period, experiment_dir=experiment_dir, new_txcosts=new_txcosts)
+        for lag in all_lags:
+            for txcost in all_txcosts:
+                top_n_analysis = analyse_top_n(
+                    analysis=analysis,
+                    best_configs=compute_aggregated_and_find_best_config(analysis, sort_by=sort_by),
+                    top_n=top_n,
+                    fixed_params_before={"lag":lag, "txcost":txcost},
+                )
+                table.loc[lag, txcost] = [pd.Series(top_n_analysis["param_avg"])]
+    table = table.applymap(lambda x: x[0])
+    rows = []
+    for lag in table.index:
+        interim = []
+        for txcost in table.columns:
+            interim.append(table.loc[lag, txcost])
+        interim = pd.concat(interim, axis=1, keys = table.columns)
+        rows.append(interim)
+    new_table = pd.concat(rows, keys=table.index)
+
+    return table
+
+lag_txcost_summary([modern], all_txcosts=[0.003, 0.005], all_lags=[0,1])
+
 analyse_top_n(
     analysis=analysis,
     best_configs=compute_aggregated_and_find_best_config(analysis, sort_by="Annualized Sharpe"),
     top_n=10,
-    fixed_params_before={"lag": 1, "config/txcost":0},
+    fixed_params_before={"lag": 0, "config/txcost":0},
 )
 
 

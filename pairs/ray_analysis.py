@@ -139,6 +139,7 @@ def analyse_top_n(
     ]
 
     to_be_averaged = ['dist_num', 'threshold']
+    to_be_medianed = ['freq', 'lag', 'pairs_deltas', 'confidence']
 
     value_counts = {}
     param_avg = {}
@@ -147,6 +148,8 @@ def analyse_top_n(
         value_counts["config/" + param] = top_n_results["config/" + param].astype(str).value_counts()
         if param in to_be_averaged:
             param_avg[param] = top_n_results["config/" + param].mean()
+        if param in to_be_medianed:
+            param_avg[param] = top_n_results["config/" + param].astype(str).value_counts().index[0]
     # for key in value_counts.keys():
     #     value_counts[key] = eval(value_counts[key])
 

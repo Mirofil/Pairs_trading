@@ -74,11 +74,11 @@ def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[flo
     for new_txcost in new_txcosts:
         for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
             generated = analysis.loc[admissible_id].copy(deep=True)
-            generated["txcost"] = new_txcost
-            generated["config/txcost"] = new_txcost
             if add_backtests is True:
                 generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
             new_rows.append(generated)
+            generated["txcost"] = new_txcost
+            generated["config/txcost"] = new_txcost
     
     return new_rows
 
