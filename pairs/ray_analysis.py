@@ -83,8 +83,7 @@ def compute_aggregated_and_find_best_config(
     aggs = []
     for idx in tqdm(stats_df.index, desc="Constructing aggregated statistics"):
         row = stats_df.loc[idx]
-        aggs.append(
-            aggregate(
+        agg = aggregate(
                 [row["descs"]],
                 None,
                 [row["trading_days"]],
@@ -92,6 +91,9 @@ def compute_aggregated_and_find_best_config(
                 returns_nonzero=True,
                 trades_nonzero=True,
             )
+        agg = standardize_results(agg, poslen=None, numtrades = [30/row["trading_days"]])
+        aggs.append(
+            agg
         )
     stats_df["aggregated"] = aggs
     analysis["aggregated"] = aggs

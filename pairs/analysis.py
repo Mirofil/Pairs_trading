@@ -322,7 +322,22 @@ def aggregate(
     multiindex_from_product_cols=[["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]],
     returns_nonzero=True,
     trades_nonzero=True,
+    short_selling_cost=0.006
 ):
+    """Calculates another table, almost in publication ready shape.
+
+    Args:
+        descriptive_frames (List[pd.DataFrame]): Frequency/method labeled Desc Frames
+        columns_to_pick (List[str], optional): Just use default. Defaults to None.
+        trading_period_days (List[int], optional): The length of trading period in DAYS used to normalize the statistics here. Defaults to [60, 60, 10, 10].
+        multiindex_from_product_cols (list, optional): The multi-index columns used for the resulting dataframe. Defaults to [["Daily", "Hourly", "5-Minute"], ["Dist.", "Coint."]].
+        returns_nonzero (bool, optional): Only consider non-zero trades pairs for calculating returns. This determines return on employed vs committed capital. Defaults to True.
+        trades_nonzero (bool, optional): See above. Defaults to True.
+        short_selling_cost (float, optional): Annual cost of short-selling. Defaults to 0.006.
+
+    Returns:
+        [type]: [description]
+    """
     assert len(trading_period_days) == len(descriptive_frames)
     assert len(multiindex_from_product_cols[0])*len(multiindex_from_product_cols[1]) == len(descriptive_frames)
     temp = []
@@ -365,6 +380,7 @@ def aggregate(
                 ["Roundtrip trades", "Avg length of position"],
             ] = None
         mean = desc_frame.groupby(level=0).mean()
+        mean["Total profit"] = mean["Total profit"] - trading_period_days[i]/365*short_selling_cost
         mean["Trading period Sharpe"] = (
             mean["Total profit"] - (0.02 / (365 / trading_period_days[i]))
         ) / mean["Std"]

@@ -73,6 +73,17 @@ paper1_univ = TradingUniverse(
     save_path_tables="/Users/miro/Documents/Projects/bachelor/Pairs_trading_new/paper1/NEWtables",
 )
 
+paper2_univ = TradingUniverse(
+    start_date=[1990, 1, 1],
+    end_date=[2020, 6, 1],
+    volume_cutoff=[0.1,1],
+    root_folder="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2",
+    data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/nyse/",
+    save_path_results = "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/results",
+    save_path_graphs="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/graphs",
+    save_path_tables="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/tables",
+)
+
 
 start_date = datetime.date(*[2018, 1, 1])
 end_date = datetime.date(*[2019, 9, 1])

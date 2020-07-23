@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from typing import *
 
 def beautify(df, overlap=False):
     formats = {
@@ -128,8 +129,20 @@ def produce_stoploss_table(des, prefix, freqs):
     df = filter_nonsense(df)
     return df
 
+def guess_frequency_from_col(aggregated:pd.DataFrame):
+    freqs = []
+    for col in aggregated.columns:
+        if 'Daily' in col:
+            freqs.append(1)
+        elif 'Hourly' in col:
+            freqs.append(1/24)
+        elif '5-Minute' in col:
+            freqs.append(1/288)
+
+    return freqs
+
 def standardize_results(
-    df, poslen=[1, 1, 1 / 24, 1 / 24], numtrades=[1 / 2, 1 / 2, 3, 3], drop=True
+    aggregated, poslen=None, numtrades:List[float]=[1 / 2, 1 / 2, 3, 3], drop=True
 ):
     """This standardizes some metrics that rely on time ratios to days or months
 
@@ -142,20 +155,23 @@ def standardize_results(
     Returns:
         [type]: [description]
     """
-    df.loc["Avg length of position"] = (
-        df.loc["Avg length of position"].astype("float32") * poslen
+    if poslen is None:
+        poslen = guess_frequency_from_col(aggregated=aggregated)
+
+    aggregated.loc["Avg length of position"] = (
+        aggregated.loc["Avg length of position"].astype("float32") * poslen
     )
-    df.loc["Number of trades"] = (
-        df.loc["Number of trades"].astype("float32") * numtrades
+    aggregated.loc["Number of trades"] = (
+        aggregated.loc["Number of trades"].astype("float32") * numtrades
     )
-    df = df.rename(
+    aggregated = aggregated.rename(
         {
             "Avg length of position": "Length of position (days)",
             "Number of trades": "Monthly number of trades",
         }
     )
     if drop == True:
-        df = df.drop(
+        aggregated = aggregated.drop(
             [
                 "Trading period profit",
                 "Trading period Sharpe",
@@ -164,4 +180,4 @@ def standardize_results(
             ],
             errors="ignore",
         )
-    return df
+    return aggregated

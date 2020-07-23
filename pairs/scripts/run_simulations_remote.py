@@ -35,7 +35,7 @@ if __name__ == "__main__":
     )
 
     univ = TradingUniverse(
-        data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/hist/nyse/",
+        data_path="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/nyse/",
         # tracking_uri="file:/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/mlruns",
         tracking_uri="http://0.0.0.0:5000",
         start_date=[1990, 1, 1],
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     analysis = tune.run(
         simulate,
-        local_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading/ray_results/",
+        local_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/",
         name="simulate_dist_retries_nomlflow",
         max_failures=3,
         config=generate_scenario(
@@ -68,6 +68,30 @@ if __name__ == "__main__":
             dataset=USDataset(config=univ),
         ),
     )
+
+    analysis = tune.run(
+        simulate,
+        local_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/",
+        name="simulate_dist_retries_nomlflow",
+        max_failures=3,
+        config=generate_scenario(
+            freq="1D",
+            lag=tune.grid_search([0,1]),
+            txcost=0.003,
+            pairs_deltas = tune.grid_search([{"training_delta":[10,0,0], "formation_delta":[20,0,0]}]),
+            jump=[2, 0, 0],
+            method="dist",
+            dist_num=tune.grid_search([5, 10, 20, 40]),
+            threshold=tune.grid_search([0.5,1,1.5,2,2.5,3]),
+            stoploss=100,
+            redo_prefiltered=True,
+            redo_preprocessed=True,
+            truncate=True,
+            trading_univ=univ,
+            dataset=USDataset(config=univ),
+        ),
+    )
+
 
 
 

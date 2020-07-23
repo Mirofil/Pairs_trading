@@ -125,7 +125,7 @@ rhrs = [
     for rhr in tqdm(rhrs)
 ]
 rtrs = [
-    produce_trading_ts(
+    praggregateduce_trading_ts(
         rtr, relevant_timeframes_t, take_every_nth=1, keep_ts_continuity=True
     )
     for rtr in tqdm(rtrs)
@@ -147,18 +147,17 @@ with open(os.path.join(paper1_univ.save_path_tables, "rtr_trading_ts.pkl"), "wb"
 
 rdr_trading_ts = pd.read_pickle(
     os.path.join(paper1_univ.save_path_tables, "rdr_trading_ts.pkl")
-)
-rhr_trading_ts = pd.read_pickle(
-    os.path.join(paper1_univ.save_path_tables, "rhr_trading_ts.pkl")
+aggregatedrhr_trading_ts = pd.read_pickle(
+    os.path.join(paggregateder1_univ.save_path_tables, "rhr_trading_ts.pkl")
 )
 rtr_trading_ts = pd.read_pickle(
-    os.path.join(paper1_univ.save_path_tables, "rtr_trading_ts.pkl")
+    os.path.join(paper1aggregatedniv.save_path_tables, "rtr_trading_ts.pkl")
 )
 
 
 
 feasible = [
-    "Monthly profit",
+   aggregatedMonaggregatedly profit",
     "Annual profit",
     "Total profit",
     "Annualized Sharpe",
@@ -166,7 +165,7 @@ feasible = [
     "Number of trades",
     "Roundtrip trades",
     "Avg length of position",
-    "Pct of winning trades",
+    "Pct ofaggregatedinning trades",
     "Max drawdown",
     "Nominated pairs",
     "Traded pairs",
@@ -174,7 +173,7 @@ feasible = [
 
 btcusd = pd.DataFrame(btcusd.set_index("Opened")["Close"], columns=["Close"])
 btcusd.index = pd.to_datetime(btcusd.index)
-btcusd = btcusd.resample("1D").last()
+btcusd = btcusd.resample("1D"aggregatedlast()
 btcusd = btcusd.loc[
     relevant_timeframes_d[0][0] : relevant_timeframes_d[-1][1]
 ]  # need to match up with the trading periods from our strategy

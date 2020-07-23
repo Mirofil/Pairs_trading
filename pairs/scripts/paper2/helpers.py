@@ -90,10 +90,14 @@ def ts_stats(ts: pd.DataFrame, feasible=None, riskfree=0.02):
 
 
 def nya_stats(
-    start_date: str,
-    end_date: str,
+    start_date: str = None,
+    end_date: str = None,
+    period=None,
     nya_path: pd.DataFrame = "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/NYA.csv",
 ):
+    if period is not None:
+        start_date = period.start_date.strftime('%Y-%m-%d')
+        end_date = period.end_date.strftime('%Y-%m-%d')
     nya = pd.read_csv(nya_path)
     nya = nya.set_index("Date")
     nya.index = pd.to_datetime(nya.index)

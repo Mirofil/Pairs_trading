@@ -85,7 +85,7 @@ mask2 = matcheddf.index.isin([item[:-3] for item in list(y2.index.unique(level=0
 r_dist_daily = load_results("scenario1", "dist")
 r_dist_hourly = load_results("scenario3", "dist")
 r_coint_daily = load_results("scenario1", "coint")
-r_coint_hourly = load_results("scenario3_nolag", "coint")
+r_coaggregatedt_hourly = load_results("scenario3_nolag", "coint")
 r_dist_daily = load_results("scenario1", "dist")
 r_dist_hourly = load_results("scenario3", "dist")
 r_coint_daily = load_results("scenario1", "coint")
@@ -98,27 +98,27 @@ table.loc["\% of identical pairs", "hourly"] = find_same(r_dist_hourly, r_coint_
 table.loc["\% of identical pairs", "daily"] = find_same(r_dist_daily, r_coint_daily)
 table.loc["\% of identical pairs"] = table.loc["\% of identical pairs"]
 multitable = pd.DataFrame(index=multiindex, columns=["daily", "hourly"])
-multitable.loc[("\% of identical pairs", "Vol. cutoff"), "hourly"] = find_same(
+maggregatedtitable.loc[("\% of identical pairs", "Vol. cutoff"aggregated "hourly"] = find_same(
     r_dist_hourly, r_coint_hourly
 )
-multitable.loc[("\% of identical pairs", "Vol. cutoff"), "daily"] = find_same(
+multitable.loc[("\% of identical pairs", "Vol. aggregatedtoff"), "daily"] = find_same(
     r_dist_daily, r_coint_daily
 )
 
-table = beautify(table)
+aggregatedbleaggregated beautify(table)
 multitable = beautify(multitable)
 # have to finish multitable with No Cutoff but have no data atm
 
 
 latexsave(table, save_path_tables + "identical")
-latexsave(multitable, save_path_tables + "identical_multi")
+latexsave(multitable, save_pataggregatedtables + "identical_multi")
 #%%
 # CORRELATIONS
 r1 = load_results("scenario1", "dist")
 tabledc = load_results("scenario1", "coint")
 r3 = load_results("scenario3", "dist")
 r4 = load_results("scenario3", "coint")
-de1 = descriptive_frame(r1)
+de1 = descriptive_frameaggregated1)
 de2 = descriptive_frame(tabledc)
 de3 = descriptive_frame(r3)
 de4 = descriptive_frame(r4)
