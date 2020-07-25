@@ -39,7 +39,7 @@ from pairs.pairs_trading_engine import (
     trim_backtests_with_trading_past_date,
 )
 from pairs.scripts.paper2.loaders import join_backtests_by_id
-from pairs.scripts.paper2.helpers import ts_stats, nya_stats
+from pairs.scripts.paper2.helpers import ts_stats, nya_stats, join_summaries_by_period
 from pairs.scripts.paper2.loaders import process_experiment, load_experiment
 from pairs.scripts.paper2.subperiods import (
     nineties,
@@ -55,7 +55,7 @@ from pairs.scripts.paper2.tables import (
     subperiods_summary,
 )
 from pairs.analysis import find_scenario
-from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_top_n
+from pairs.ray_analysis import compute_aggregated_and_sort_by, analyse_top_n
 
 
 # /mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/paper2/analysis
@@ -66,9 +66,24 @@ from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_
 subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
 new_txcosts = [0, 0.0026, 0.0035]
 
+subperiods = [nineties, dotcom, inbetween_crises]
+
 subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
 new_txcosts = [0]
 all_lags = [0, 1]
+pairs_deltas_2id = {
+    '{"training_delta":[3,0,0], "formation_delta":[6,0,0]}': 0.5,
+    '{"training_delta":[6,0,0], "formation_delta":[12,0,0]}': 1,
+    '{"training_delta":[1,0,0], "formation_delta":[2,0,0]}': 0.16,
+    '{"training_delta":[10,0,0], "formation_delta":[20,0,0]}': 1.66,
+}
+
+id_2pairs_deltas = {
+    0.5: '{"training_delta":[3,0,0], "formation_delta":[6,0,0]}',
+    1: '{"training_delta":[6,0,0], "formation_delta":[12,0,0]}',
+    0.16: '{"training_delta":[1,0,0], "formation_delta":[2,0,0]}',
+    1.66: '{"training_delta":[10,0,0], "formation_delta":[20,0,0]}',
+}
 
 for period in subperiods:
     exp = process_experiment(
@@ -83,23 +98,30 @@ for period in subperiods:
 for period in subperiods:
     period.analysis = load_experiment(
         subperiod=period,
-        ids=range(143),
-        experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+        experiment_dir=[
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+        ],
         new_txcosts=new_txcosts,
     )
 
 period = modern
 analysis = load_experiment(
     subperiod=period,
-    ids=range(143),
-    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+    experiment_dir=[
+        "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+        "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+    ],
     new_txcosts=new_txcosts,
 )
 
 for period in subperiods:
     exp = process_experiment(
         subperiod=period,
-        experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+        experiment_dir=[
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+        ],
         new_txcosts=new_txcosts,
     )
 
@@ -128,7 +150,7 @@ def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_pas
 # sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
 anal = analyse_top_n(
     analysis,
-    compute_aggregated_and_find_best_config(analysis, sort_by="Monthly profit"),
+    compute_aggregated_and_sort_by(analysis, sort_by="Monthly profit"),
     top_n=10,
     fixed_params_before={"lag": 1, "config/txcost": 0.003, "dist_num": 20},
 )
@@ -143,21 +165,17 @@ find_scenario(
         "pairs_deltas/formation_delta": "[6, 0, 0]",
     },
 )
-stats_df = compute_aggregated_and_find_best_config(
-    analysis=analysis, sort_by="Monthly profit"
-)
+stats_df = compute_aggregated_and_sort_by(analysis=analysis, sort_by="Monthly profit")
 
 aggregate(
     [results[78]], None, [60], [["Daily"], ["Dist"]]
 )  # this is benchmark literature conf
 
 
-all_periods_summary(
-    subperiods=[modern], ids=range(143), new_txcosts=new_txcosts, univ=paper2_univ
-)
+all_periods_summary(subperiods=[dotcom], new_txcosts=new_txcosts, univ=paper2_univ)
 lag_txcost_summary(
-    subperiods=[modern],
-    all_txcosts=[0.003, 0.005],
+    subperiods=[dotcom],
+    new_txcosts=[0],
     all_lags=[0, 1],
     sort_by="Monthly profit",
     univ=paper2_univ,
@@ -166,12 +184,11 @@ subperiods_summary(subperiods, univ=paper2_univ)
 
 analyse_top_n(
     analysis=analysis,
-    best_configs=compute_aggregated_and_find_best_config(
-        analysis, sort_by="Annualized Sharpe"
-    ),
+    best_configs=compute_aggregated_and_sort_by(analysis, sort_by="Annualized Sharpe"),
     top_n=10,
     fixed_params_before={"lag": 1, "config/txcost": 0},
 )
 
 
-nya_stats(period=financial_crisis)
+join_summaries_by_period(summaries=summaries2, periods=subperiods)
+nya_stats(periods=subperiods)

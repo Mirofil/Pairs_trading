@@ -223,6 +223,8 @@ def descriptive_stats(
 
 def descriptive_frame(olddf, show_progress_bar=False, trading_delta=None):
     # this should be a subset of the statistics from descriptive_stats I think
+    if (olddf is None) or (len(olddf) == 0):
+        return None
     diag = [
         "Monthly profit",
         "Annual profit",
@@ -305,6 +307,7 @@ def compute_cols_from_freq(freqs:List[str], methods:List[str]):
     """ Useful for automatically populating the parameters in aggregate
     >>> compute_cols_from_freq(["1D"], ["dist"]) """
     results = []
+    polished_methods = []
     for freq in freqs:
         if freq[-1] == 'D':
             results.append('Daily')
@@ -312,6 +315,14 @@ def compute_cols_from_freq(freqs:List[str], methods:List[str]):
             results.append('Hourly')
         elif freq[-1] == 'T':
             results.append(f"{freq[:-2]}-Minute")
+        
+    for method in methods:
+        if method == 'dist':
+            polished_methods.append('Dist.')
+        elif method == 'coint':
+            polished_methods.append('Coint.')
+        else:
+            raise NotImplementedError
     return [results, methods]
     
 

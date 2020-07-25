@@ -105,7 +105,7 @@ def calculate_new_experiments_txcost(
 
     new_rows = []
     for new_txcost in new_txcosts:
-        for admissible_id in tqdm(admissible_ids, desc="Going over admissible ids"):
+        for admissible_id in tqdm(admissible_ids, desc="Adding txcosts over admissible ids"):
             generated = analysis.loc[admissible_id].copy(deep=True)
             if add_backtests is True:
                 generated["backtests"] = change_txcost_in_backtests(
@@ -184,7 +184,7 @@ def guess_ids_in_period(
 
 def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_past: str):
     """This is used for joining additional experiments with some other experiment run. THe experiment-to-be-joined should have end_date in excess of the other's experiments's end_date, and there can be some overla[
-        The idea here is to assure that no backtests are counted twice
+        The endgoal is to have a good way of estimating performance during covid crises even from PT configurations with long horizons
     """
     backtests_trimmed = []
     backtests_trimmed_idxs = []
@@ -196,7 +196,7 @@ def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_pas
             backtests_trimmed.append(
                 pick_range(
                     backtests.loc[backtest_idx],
-                    start=periods["formation"][0],
+                    start=end_dates_past,
                     end=periods["trading"][1],
                 )
             )
@@ -207,17 +207,20 @@ def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_pas
 
 def backtests_up_to_date(
     backtests: pd.DataFrame,
-    min_formation_period_start=None,
+    min_trading_period_start=None,
     max_trading_period_end: str = None,
+    min_formation_period_start=None,
     print_chosen_periods=False,
 ):
     if type(max_trading_period_end) is str:
         max_trading_period_end = pd.to_datetime(max_trading_period_end)
+    if type(min_trading_period_start) is str:
+        min_trading_period_start = pd.to_datetime(min_trading_period_start)
     if type(min_formation_period_start) is str:
         min_formation_period_start = pd.to_datetime(min_formation_period_start)
 
-    if min_formation_period_start is None:
-        min_formation_period_start = backtests.iloc[0]
+    if min_trading_period_start is None:
+        min_trading_period_start = backtests.iloc[0]
     backtests_trimmed = []
     backtests_trimmed_idxs = []
 
@@ -239,8 +242,8 @@ def backtests_up_to_date(
         periods = infer_periods(backtests.loc[backtest_idx])
 
         if (
-            pd.to_datetime(periods["trading"][1]) < max_trading_period_end
-            and pd.to_datetime(periods["trading"][0]) >= min_formation_period_start
+            pd.to_datetime(periods["trading"][1]) <= max_trading_period_end
+            and pd.to_datetime(periods["trading"][0]) >= min_trading_period_start
         ):
             backtests_trimmed.append(
                 pick_range(

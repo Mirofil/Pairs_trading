@@ -28,7 +28,7 @@ from pairs.datasets.us_dataset import USDataset
 
 if __name__ == "__main__":
     ray.init(
-        num_cpus=40,
+        num_cpus=5,
         # include_webui=True,
         log_to_driver=False,
         

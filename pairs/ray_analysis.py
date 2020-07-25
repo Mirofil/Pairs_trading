@@ -54,7 +54,7 @@ def sort_aggs_by_stat(aggs, stat):
     return aggs
 
 
-def compute_aggregated_and_find_best_config(
+def compute_aggregated_and_sort_by(
     analysis: pd.DataFrame,
     sort_by="Monthly profit",
     descs: pd.DataFrame = None,

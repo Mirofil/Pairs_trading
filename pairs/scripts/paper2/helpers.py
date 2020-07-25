@@ -24,6 +24,21 @@ from pairs.distancemethod import *
 from pairs.formatting import standardize_results, beautify
 from pairs.helpers import *
 
+def join_summaries_by_period(summaries:List, periods:List):
+    new_table = []
+    new_index = summaries[0].index
+    all_cols = []
+
+    for period in periods:
+        for summary in summaries:
+            all_cols.append(summary.loc[:, [period.table_name]])
+    keys = []
+    for period in periods:
+        for i in range(len(summaries)):
+            keys.append(period.table_name)
+    all_cols = pd.concat(all_cols, axis=1)
+
+    return all_cols
 
 def ts_stats(ts: pd.DataFrame, feasible=None, riskfree=0.02):
     """
@@ -51,7 +66,7 @@ def ts_stats(ts: pd.DataFrame, feasible=None, riskfree=0.02):
     num_of_trading_months = num_of_trading_days / 30
     monthly_profit = (1 + profit) ** (1 / num_of_trading_months) - 1
     max_drawdown = abs(drawdown(ts).min())
-    annualized_sd = ts["cumProfit"].std() ** ((num_of_trading_days / 360) ** 1 / 2)
+    annualized_sd = ts["cumProfit"].std() * (1/((num_of_trading_days / 360) ** 1 / 2))
     annualized_sharpe = (
         (1 + profit) ** (1 / (num_of_trading_days / 360)) - 1 - riskfree
     ) / annualized_sd
@@ -92,22 +107,31 @@ def ts_stats(ts: pd.DataFrame, feasible=None, riskfree=0.02):
 def nya_stats(
     start_date: str = None,
     end_date: str = None,
-    period=None,
+    periods=None,
     nya_path: pd.DataFrame = "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/hist/NYA.csv",
 ):
-    if period is not None:
-        start_date = period.start_date.strftime('%Y-%m-%d')
-        end_date = period.end_date.strftime('%Y-%m-%d')
-    nya = pd.read_csv(nya_path)
-    nya = nya.set_index("Date")
-    nya.index = pd.to_datetime(nya.index)
-    if type(end_date) is str:
-        end_date = pd.to_datetime(end_date)
-    if type(start_date) is str:
-        start_date = pd.to_datetime(start_date)
+    results = []
+    if periods is not None:
+        for period in periods:
+            start_date = period.start_date.strftime('%Y-%m-%d')
+            end_date = period.end_date.strftime('%Y-%m-%d')
+            nya = pd.read_csv(nya_path)
+            nya = nya.set_index("Date")
+            nya.index = pd.to_datetime(nya.index)
+            if type(end_date) is str:
+                end_date = pd.to_datetime(end_date)
+            if type(start_date) is str:
+                start_date = pd.to_datetime(start_date)
 
-    nya = nya.loc[start_date:end_date]
-    nya["Close"] = nya["Close"] / nya["Close"].iloc[0]
-    nya["cumProfit"] = nya["Close"]
+            nya = nya.loc[start_date:end_date]
+            nya["Close"] = nya["Close"] / nya["Close"].iloc[0]
+            nya["cumProfit"] = nya["Close"]
+            result = ts_stats(nya)
+            result=result.rename({"NYA":"NYSE"}, level=1, axis=1)
+            result = result.droplevel(level=1, axis=1)
+            results.append(result)
+    results = pd.concat(results, axis=1, keys=[subperiod.table_name for subperiod in periods])
+    
+    return results
 
-    return ts_stats(nya)
+
