@@ -23,7 +23,7 @@ from p_tqdm import p_map
 from joblib import Parallel, delayed
 
 
-def find_original_ids(analysis:pd.DataFrame):
+def find_original_ids(analysis: pd.DataFrame):
     """Finds row indexes which have the parent_id equal to the row index, thus picking out only the actually ran simulations rather than artifically added txcost scenarios etc. """
     original_ids = []
     for idx in analysis.index.get_level_values(0).unique(0):
@@ -31,17 +31,33 @@ def find_original_ids(analysis:pd.DataFrame):
             original_ids.append(idx)
     return original_ids
 
-def change_txcost_in_backtests(backtests:pd.DataFrame, old_txcost, new_txcost, workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0))))):
-    pd.set_option('mode.chained_assignment', None)
+
+def change_txcost_in_backtests(
+    backtests: pd.DataFrame,
+    old_txcost,
+    new_txcost,
+    workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0)))),
+):
+    pd.set_option("mode.chained_assignment", None)
 
     # backtests = backtests.copy(deep=True)
-    worker = partial(change_txcost_in_backtest, old_txcost=old_txcost, new_txcost=new_txcost)
+    worker = partial(
+        change_txcost_in_backtest, old_txcost=old_txcost, new_txcost=new_txcost
+    )
     shards = np.array_split(backtests, workers)
 
-    result = Parallel(n_jobs=workers, verbose=1)(delayed(worker)(backtests.loc[backtest_idx]) for backtest_idx in backtests.index.get_level_values(0).unique(0))
-    return pd.concat(result, keys=range(len(backtests.index.get_level_values(0).unique(0))))
+    result = Parallel(n_jobs=workers, verbose=1)(
+        delayed(worker)(backtests.loc[backtest_idx])
+        for backtest_idx in backtests.index.get_level_values(0).unique(0)
+    )
+    return pd.concat(
+        result, keys=range(len(backtests.index.get_level_values(0).unique(0)))
+    )
 
-def change_txcost_in_backtest(backtest:pd.DataFrame, old_txcost:float, new_txcost:float, copy=True):
+
+def change_txcost_in_backtest(
+    backtest: pd.DataFrame, old_txcost: float, new_txcost: float, copy=True
+):
     """Generates new synthetic backtets with changed txcost
 
     Args:
@@ -54,34 +70,55 @@ def change_txcost_in_backtest(backtest:pd.DataFrame, old_txcost:float, new_txcos
         [type]: [description]
     """
     if copy is True:
-        backtest=backtest.copy(deep=True)
-    trade_signals = ['Short', 'Long', 'Sell', 'sellShort', 'sellLong']
-    for pair in backtest.index.get_level_values('Pair').unique('Pair'):
+        backtest = backtest.copy(deep=True)
+    trade_signals = ["Short", "Long", "Sell", "sellShort", "sellLong"]
+    for pair in backtest.index.get_level_values("Pair").unique("Pair"):
         mask = backtest.loc[pair, "Signals"].isin(trade_signals)
         spread_beta_for_pair = backtest.loc[pair, "SpreadBeta"].iloc[0]
-        backtest.loc[pair].loc[mask, "Profit"] = backtest.loc[pair].loc[mask, "Profit"] + 1 * old_txcost + spread_beta_for_pair * old_txcost
-        backtest.loc[pair].loc[mask, "Profit"] = backtest.loc[pair].loc[mask, "Profit"] - 1 * new_txcost - spread_beta_for_pair * old_txcost
-        backtest.loc[pair, "cumProfit"] = (backtest.loc[pair, "Profit"].cumsum()+1).values
+        backtest.loc[pair].loc[mask, "Profit"] = (
+            backtest.loc[pair].loc[mask, "Profit"]
+            + 1 * old_txcost
+            + spread_beta_for_pair * old_txcost
+        )
+        backtest.loc[pair].loc[mask, "Profit"] = (
+            backtest.loc[pair].loc[mask, "Profit"]
+            - 1 * new_txcost
+            - spread_beta_for_pair * old_txcost
+        )
+        backtest.loc[pair, "cumProfit"] = (
+            backtest.loc[pair, "Profit"].cumsum() + 1
+        ).values
     return backtest
 
-def calculate_new_experiments_txcost(analysis:pd.DataFrame, new_txcosts:List[float], original_only = True, add_backtests=True):
+
+def calculate_new_experiments_txcost(
+    analysis: pd.DataFrame,
+    new_txcosts: List[float],
+    original_only=True,
+    add_backtests=True,
+):
     """Adds new rows to the Analysis DF by changing txcost inside the backtest DF (which is a fairly easy manipulation of the Profit calculation)"""
     if original_only is True:
         admissible_ids = find_original_ids(analysis)
     else:
         admissible_ids = analysis.index.values
-    
+
     new_rows = []
     for new_txcost in new_txcosts:
-        for admissible_id in tqdm(admissible_ids, desc='Going over admissible ids'):
+        for admissible_id in tqdm(admissible_ids, desc="Going over admissible ids"):
             generated = analysis.loc[admissible_id].copy(deep=True)
             if add_backtests is True:
-                generated["backtests"] = change_txcost_in_backtests(generated["backtests"], old_txcost=generated["txcost"], new_txcost=new_txcost)
+                generated["backtests"] = change_txcost_in_backtests(
+                    generated["backtests"],
+                    old_txcost=generated["txcost"],
+                    new_txcost=new_txcost,
+                )
             new_rows.append(generated)
             generated["txcost"] = new_txcost
             generated["config/txcost"] = new_txcost
-    
+
     return new_rows
+
 
 def pick_range(df: pd.DataFrame, start=None, end=None):
     """ Slices preprocessed index-wise to achieve y[start:end], taking into account the MultiIndex
@@ -145,6 +182,28 @@ def guess_ids_in_period(
     return (start_idx, end_idx)
 
 
+def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_past: str):
+    """This is used for joining additional experiments with some other experiment run. THe experiment-to-be-joined should have end_date in excess of the other's experiments's end_date, and there can be some overla[
+        The idea here is to assure that no backtests are counted twice
+    """
+    backtests_trimmed = []
+    backtests_trimmed_idxs = []
+    if type(end_dates_past) is str:
+        end_dates_past = pd.to_datetime(end_dates_past)
+    for backtest_idx in backtests.index.get_level_values(level=0).unique(0):
+        periods = infer_periods(backtests.loc[backtest_idx])
+        if pd.to_datetime(periods["trading"][1]) >= end_dates_past:
+            backtests_trimmed.append(
+                pick_range(
+                    backtests.loc[backtest_idx],
+                    start=periods["formation"][0],
+                    end=periods["trading"][1],
+                )
+            )
+            backtests_trimmed_idxs.append(backtest_idx)
+
+    return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
+
 
 def backtests_up_to_date(
     backtests: pd.DataFrame,
@@ -178,9 +237,10 @@ def backtests_up_to_date(
 
     for backtest_idx in backtests.index.get_level_values(0).unique(0):
         periods = infer_periods(backtests.loc[backtest_idx])
+
         if (
             pd.to_datetime(periods["trading"][1]) < max_trading_period_end
-            and pd.to_datetime(periods["formation"][0]) >= min_formation_period_start
+            and pd.to_datetime(periods["trading"][0]) >= min_formation_period_start
         ):
             backtests_trimmed.append(
                 pick_range(
@@ -194,7 +254,11 @@ def backtests_up_to_date(
         if pd.to_datetime(periods["trading"][1]) > max_trading_period_end:
             break
 
-    return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
+    if len(backtests_trimmed) > 0:
+
+        return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
+    else:
+        return None
 
 
 def signals_numeric(olddf, copy=True):

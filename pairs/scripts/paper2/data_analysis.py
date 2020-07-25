@@ -31,12 +31,29 @@ from pairs.formatting import beautify, standardize_results
 from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
-from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests, calculate_new_experiments_txcost
+from pairs.pairs_trading_engine import (
+    pick_range,
+    backtests_up_to_date,
+    change_txcost_in_backtests,
+    calculate_new_experiments_txcost,
+    trim_backtests_with_trading_past_date,
+)
 from pairs.scripts.paper2.loaders import join_backtests_by_id
 from pairs.scripts.paper2.helpers import ts_stats, nya_stats
 from pairs.scripts.paper2.loaders import process_experiment, load_experiment
-from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern, all_history
-from pairs.scripts.paper2.tables import all_periods_summary, lag_txcost_summary, subperiods_summary
+from pairs.scripts.paper2.subperiods import (
+    nineties,
+    dotcom,
+    financial_crisis,
+    inbetween_crises,
+    modern,
+    all_history,
+)
+from pairs.scripts.paper2.tables import (
+    all_periods_summary,
+    lag_txcost_summary,
+    subperiods_summary,
+)
 from pairs.analysis import find_scenario
 from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_top_n
 
@@ -46,28 +63,74 @@ from pairs.ray_analysis import compute_aggregated_and_find_best_config, analyse_
 #     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 # ).dataframe()
 
-subperiods = [all_history,nineties,dotcom, inbetween_crises, financial_crisis, modern]
-new_txcosts = [0,0.0015,0.005, 0.01, 0.02]
+subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
+new_txcosts = [0, 0.0026, 0.0035]
 
-subperiods = [nineties,dotcom, inbetween_crises, financial_crisis, modern]
+subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
 new_txcosts = [0]
 all_lags = [0, 1]
 
-for period in subperiods:   
-    exp = process_experiment(subperiod=period,ids=range(143), experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
+for period in subperiods:
+    exp = process_experiment(
+        subperiod=period,
+        experiment_dir=[
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+            "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+        ],
+        new_txcosts=new_txcosts,
+    )
 
 for period in subperiods:
-    period.analysis = load_experiment(subperiod=period, ids=range(143), experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
+    period.analysis = load_experiment(
+        subperiod=period,
+        ids=range(143),
+        experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+        new_txcosts=new_txcosts,
+    )
 
 period = modern
-analysis = load_experiment(subperiod=period, ids=range(143), experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/", new_txcosts=new_txcosts)
+analysis = load_experiment(
+    subperiod=period,
+    ids=range(143),
+    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+    new_txcosts=new_txcosts,
+)
+
+for period in subperiods:
+    exp = process_experiment(
+        subperiod=period,
+        experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
+        new_txcosts=new_txcosts,
+    )
+
+
+def trim_backtests_with_trading_past_date(backtests: pd.DataFrame, end_dates_past: str):
+    """This is used for joining additional experiments with some other experiment run. THe experiment-to-be-joined should have end_date in excess of the other's experiments's end_date, and there can be some overla[
+        The idea here is to assure that no backtests are counted twice
+    """
+    if type(end_dates_past) is str:
+        end_dates_past = pd.to_datetime(end_dates_past)
+    for backtest_idx in backtests.index.get_level_values(level=0).unique(0):
+        periods = infer_periods(backtests.loc[backtest_idx])
+        if pd.to_datetime(periods["trading"][1]) >= end_dates_past:
+            backtests_trimmed.append(
+                pick_range(
+                    backtests.loc[backtest_idx],
+                    start=periods["formation"][0],
+                    end=periods["trading"][1],
+                )
+            )
+            backtests_trimmed_idxs.append(backtest_idx)
+
+    return pd.concat(backtests_trimmed, keys=backtests_trimmed_idxs)
+
 
 # sort_aggs_by_stat(best_configs["aggregated"], "Monthly profit")
 anal = analyse_top_n(
     analysis,
     compute_aggregated_and_find_best_config(analysis, sort_by="Monthly profit"),
     top_n=10,
-    fixed_params_before={"lag": 1, "config/txcost":0.003, "dist_num":20},
+    fixed_params_before={"lag": 1, "config/txcost": 0.003, "dist_num": 20},
 )
 
 
@@ -80,23 +143,34 @@ find_scenario(
         "pairs_deltas/formation_delta": "[6, 0, 0]",
     },
 )
-stats_df = compute_aggregated_and_find_best_config(analysis=analysis, sort_by='Monthly profit')
+stats_df = compute_aggregated_and_find_best_config(
+    analysis=analysis, sort_by="Monthly profit"
+)
 
 aggregate(
     [results[78]], None, [60], [["Daily"], ["Dist"]]
 )  # this is benchmark literature conf
 
 
-
-all_periods_summary(subperiods = [modern], ids=range(143), new_txcosts = new_txcosts, univ=paper2_univ)
-lag_txcost_summary(subperiods=[modern], all_txcosts=[0.003, 0.005], all_lags=[0,1], sort_by='Monthly profit', univ=paper2_univ)
-subperiods_summary(subperiods, univ = paper2_univ)
+all_periods_summary(
+    subperiods=[modern], ids=range(143), new_txcosts=new_txcosts, univ=paper2_univ
+)
+lag_txcost_summary(
+    subperiods=[modern],
+    all_txcosts=[0.003, 0.005],
+    all_lags=[0, 1],
+    sort_by="Monthly profit",
+    univ=paper2_univ,
+)
+subperiods_summary(subperiods, univ=paper2_univ)
 
 analyse_top_n(
     analysis=analysis,
-    best_configs=compute_aggregated_and_find_best_config(analysis, sort_by="Annualized Sharpe"),
+    best_configs=compute_aggregated_and_find_best_config(
+        analysis, sort_by="Annualized Sharpe"
+    ),
     top_n=10,
-    fixed_params_before={"lag": 1, "config/txcost":0},
+    fixed_params_before={"lag": 1, "config/txcost": 0},
 )
 
 

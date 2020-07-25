@@ -133,7 +133,7 @@ def load_experiment(
 
 def process_experiment(
     subperiod: Subperiod,
-    experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
+    experiment_dir:List[str]=["/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"],
     ids: List[int] = None,
     trimmed_backtests: pd.DataFrame = None,
     descs: pd.DataFrame = None,
@@ -158,6 +158,8 @@ def process_experiment(
     I generated wrong configs for some of additional distance scenario experiments, and I think I wont be doing them for coint anyways.. 
         so I will just ignore it at this point, which is what the default value of exclude_params should do
 
+    NOTE some of the IDs might be weird because of the exclude_params skipping!
+
     Args:
         subperiod (Subperiod): The subperiod we are analyzing, ie. nineties, dotcom crash etc
         experiment_dir (str, optional): Ray_results dir. Defaults to "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/".
@@ -171,11 +173,20 @@ def process_experiment(
     Returns:
         [type]: [description]
     """
-    analysis = load_analysis_dataframe(
-        experiment_dir=experiment_dir, ids=ids, exclude_params=exclude_params
-    )
+    important_params = ["freq", "lag", "txcost", "jump", "method", "dist_num", "confidence", "threshold", "volume_cutoff", "config/pairs_deltas_hashable"]
+    analyses = []
+    for experiment in experiment_dir:
+        analysis = load_analysis_dataframe(
+            experiment_dir=experiment, ids=ids, exclude_params=exclude_params
+        )
+        analysis["config/pairs_deltas_hashable"] = analysis["config/pairs_deltas"].astype(str)
 
-    analysis = join_backtests_by_id(analysis, ids=ids)
+        analysis = join_backtests_by_id(analysis, ids=ids)
+        analyses.append(analysis)
+    
+    analysis = pd.concat(analyses)
+    analysis = analysis.reset_index()
+    del analyses
 
     if trimmed_backtests is None:
         worker = partial(
@@ -183,10 +194,11 @@ def process_experiment(
             min_formation_period_start=subperiod.start_date,
             max_trading_period_end=subperiod.end_date,
         )
-        trimmed_backtests = Parallel(n_jobs=workers, verbose=1)(
+        trimmed_backtests = Parallel(n_jobs=1, verbose=1)(
             delayed(worker)(backtests)
             for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
         )
+
 
         # for idx, backtests in enumerate(analysis["backtests"]):
         #     results = []
@@ -200,6 +212,8 @@ def process_experiment(
         #     )
 
         analysis["backtests"] = trimmed_backtests
+        analysis = analysis.dropna(subset=['backtests'])
+        analysis = analysis.drop_duplicates(important_params)
     
     if new_txcosts is not None:
         new_rows = calculate_new_experiments_txcost(
@@ -221,10 +235,10 @@ def process_experiment(
             )
 
         logger.info(
-            f"Saving subperiod {subperiod.name} at {os.path.join(experiment_dir, subperiod.name + '_descs.parquet')}"
+            f"Saving subperiod {subperiod.name} at {os.path.join(experiment_dir[0], subperiod.name + '_descs.parquet')}"
         )
         descs.to_parquet(
-            os.path.join(experiment_dir, f"{subperiod.name}_descs.parquet")
+            os.path.join(experiment_dir[0], f"{subperiod.name}_descs.parquet")
         )
 
     descs_interim = []

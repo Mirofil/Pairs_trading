@@ -51,7 +51,7 @@ if __name__ == "__main__":
         max_failures=3,
         config=generate_scenario(
             freq="1D",
-            lag=tune.grid_search([1]),
+            lag=tune.grid_search([0]),
             txcost=0.003,
             pairs_deltas = tune.grid_search([{"training_delta":[3,0,0], "formation_delta":[6,0,0]},
                 {"training_delta":[6,0,0], "formation_delta":[12,0,0]},
