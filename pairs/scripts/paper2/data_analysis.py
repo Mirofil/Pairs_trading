@@ -48,6 +48,7 @@ from pairs.scripts.paper2.subperiods import (
     inbetween_crises,
     modern,
     all_history,
+    covid
 )
 from pairs.scripts.paper2.tables import (
     all_periods_summary,
@@ -63,7 +64,7 @@ from pairs.ray_analysis import compute_aggregated_and_sort_by, analyse_top_n
 #     experiment_dir="/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/"
 # ).dataframe()
 
-subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern]
+subperiods = [nineties, dotcom, inbetween_crises, financial_crisis, modern, covid]
 new_txcosts = [0, 0.0026, 0.0035]
 
 subperiods = [nineties, dotcom, inbetween_crises]

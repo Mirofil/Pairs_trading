@@ -41,7 +41,7 @@ def corrs(df):
     return (arr, ps)
 
 
-def infer_periods(single_backtest_df: pd.DataFrame, trading_delta = None):
+def infer_periods(single_backtest_df: pd.DataFrame, trading_delta = None) -> Dict:
     """Auto detects the Formation and Trading periods
     Works even with MultiIndexed since the periods are the same across all pairs"""
     trading_period_mask = ~(
@@ -130,13 +130,27 @@ def descriptive_stats(
             "Max drawdown",
         ],
     )
-    if trading_timeframe is None:
-        periods = infer_periods(single_backtest_df)
-        trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
+    if ("formation" in single_backtest_df.columns) and ("trading" in single_backtest_df.columns):
+        periods = {"formation":single_backtest_df["formation"].iloc[0], "trading":single_backtest_df["trading"].iloc[0]}
+        if "actual_trading_days" in single_backtest_df.columns:
+            trading_days = single_backtests["actual_trading_days"].iloc[0]
+        else:
+            trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
         trading_timeframe = periods["trading"]
-    else:
-        trading_days = abs((trading_timeframe[0] - trading_timeframe[1]).days)
 
+    elif trading_timeframe is None:
+        periods = infer_periods(single_backtest_df)
+        if "actual_trading_days" in single_backtest_df.columns:
+            trading_days = single_backtests["actual_trading_days"].iloc[0]
+        else:
+            trading_days = abs((periods["trading"][0] - periods["trading"][1]).days)
+        trading_timeframe = periods["trading"]
+    elif trading_timeframe is not None:
+        trading_days = abs((trading_timeframe[0] - trading_timeframe[1]).days)
+    else:
+        raise NotImplementedError
+
+    print(f"Trading days: {trading_days}")
     annualizer = 365 / trading_days
     monthlizer = 30 / trading_days
     risk_free = risk_free / annualizer
@@ -257,12 +271,18 @@ def descriptive_frame(olddf, show_progress_bar=False, trading_delta=None):
         df.groupby(level=0), desc="Constructing descriptive frames over backtests", disable= not show_progress_bar
     ):
         backtest_index = int(backtest_index)
-        trading_timeframe=infer_periods(olddf.loc[backtest_index], trading_delta=trading_delta)["trading"]
 
-        stats = descriptive_stats(
-            olddf.loc[backtest_index],
-            trading_timeframe=trading_timeframe,
-        )
+        try:
+            trading_timeframe=infer_periods(olddf.loc[backtest_index], trading_delta=trading_delta)["trading"]
+
+            stats = descriptive_stats(
+                olddf.loc[backtest_index],
+                trading_timeframe=trading_timeframe,
+            )
+        except:
+            stats = descriptive_stats(
+                olddf.loc[backtest_index]
+            )
         for col in df.loc[backtest_index].columns:
             df.loc[idx[backtest_index, :], col] = stats[col].values
 

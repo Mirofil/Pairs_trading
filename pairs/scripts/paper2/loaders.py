@@ -330,6 +330,7 @@ def process_experiment(
 
     analysis = pd.concat(analyses)
     analysis = analysis.reset_index()
+    analysis["parent_id"] = analysis.index.values
     del analyses
 
     if trimmed_backtests is None:

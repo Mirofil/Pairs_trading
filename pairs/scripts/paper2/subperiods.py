@@ -16,4 +16,4 @@ financial_crisis = Subperiod(start_date = '2007/08/1', end_date = '2009/06/01', 
 modern = Subperiod(start_date='2009/06/01', end_date='2020/02/20', name='modern', preferred_txcost=0.0026, table_name = '2009-2020')
 all_history = Subperiod(start_date='1990/1/1', end_date='2020/1/1', name='all_history', preferred_txcost=0.003, table_name = '1990-2020')
 
-covid = Subperiod(start_date='2020/2/20', end_date='2020/6/1', name='covid', preferred_txcost = 0.0026, table_name='2020 (Covid)')
+covid = Subperiod(start_date='2017/1/1', end_date='2020/6/1', name='covid', preferred_txcost = 0.0026, table_name='2020 (Covid)')
