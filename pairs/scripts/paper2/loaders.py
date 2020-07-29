@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import ray
+import pickle
 from dateutil.relativedelta import relativedelta
 from p_tqdm import p_map
 from ray import tune
@@ -38,7 +39,7 @@ from pairs.pairs_trading_engine import (
     calculate_new_experiments_txcost,
     find_original_ids,
 )
-from pairs.scripts.paper2.helpers import ts_stats, nya_stats
+from pairs.scripts.paper2.helpers import ts_stats, nya_stats, convert_params_deltas_to_multiplier
 from pairs.scripts.paper2.subperiods import Subperiod
 from pairs.analysis import find_scenario
 
@@ -112,29 +113,8 @@ def load_descs_from_parquet(fpath):
     return reshaped_descs
 
 
-def load_experiment_old(
-    subperiod: Subperiod,
-    ids: Optional[List[int]] = None,
-    experiment_dir: List[str] = [
-        "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow/",
-        "/mnt/shared/dev/code_knowbot/miroslav/test/Pairs_trading2/ray_results/simulate_dist_retries_nomlflow_covid/",
-    ],
-    new_txcosts: List[float] = None,
-    trimmed_backtests=None,
-    exclude_params: List[Dict] = [
-        {
-            "config/pairs_deltas": {
-                "formation_delta": [10, 0, 0],
-                "training_delta": [20, 0, 0],
-            },
-        },
-        {
-            "config/pairs_deltas": {
-                "formation_delta": [1, 0, 0],
-                "training_delta": [6, 0, 0],
-            }
-        },
-    ],
+def prep_experiment_from_dirs(
+    ids: Optional[List[int]], experiment_dir: List[str], exclude_params: List[Dict]
 ):
     important_params = [
         "freq",
@@ -162,18 +142,8 @@ def load_experiment_old(
 
     analysis = pd.concat(analyses)
     analysis = analysis.reset_index()
+    analysis["parent_id"] = analysis.index.values
     del analyses
-
-    if new_txcosts is not None:
-        new_rows = calculate_new_experiments_txcost(
-            analysis, new_txcosts, add_backtests=False
-        )
-        analysis = analysis.append(new_rows)
-        analysis = analysis.reset_index()
-
-    analysis["descs"] = load_descs_from_parquet(
-        fpath=os.path.join(experiment_dir[0], f"{subperiod.name}_descs.parquet")
-    )
 
     return analysis
 
@@ -202,60 +172,55 @@ def load_experiment(
             }
         },
     ],
+    force=False
 ):
-    important_params = [
-        "freq",
-        "lag",
-        "txcost",
-        "jump",
-        "method",
-        "dist_num",
-        "confidence",
-        "threshold",
-        "volume_cutoff",
-        "config/pairs_deltas_hashable",
-    ]
-    analyses = []
-    for experiment in experiment_dir:
-        analysis = load_analysis_dataframe(
-            experiment_dir=experiment, ids=ids, exclude_params=exclude_params
-        )
-        analysis["config/pairs_deltas_hashable"] = analysis[
-            "config/pairs_deltas"
-        ].astype(str)
-
-        analysis = join_backtests_by_id(analysis, ids=ids)
-        analyses.append(analysis)
-
-    analysis = pd.concat(analyses)
-    analysis = analysis.reset_index()
-    del analyses
-
-    if trimmed_backtests is None:
-        worker = partial(
-            backtests_up_to_date,
-            min_trading_period_start=subperiod.start_date,
-            max_trading_period_end=subperiod.end_date,
-        )
-        trimmed_backtests = Parallel(n_jobs=workers, verbose=1)(
-            delayed(worker)(backtests)
-            for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
+    if os.path.exists(os.path.join(experiment_dir[0], f"{subperiod.name}_analysis")) and not force:
+        analysis = pd.read_pickle(os.path.join(experiment_dir[0], f"{subperiod.name}_analysis"))
+    else:
+        important_params = [
+            "freq",
+            "lag",
+            "txcost",
+            "jump",     
+            "method",
+            "dist_num",
+            "confidence",
+            "threshold",
+            "volume_cutoff",
+            "config/pairs_deltas_hashable",
+        ]
+        analysis = prep_experiment_from_dirs(
+            ids=ids, experiment_dir=experiment_dir, exclude_params=exclude_params
         )
 
-        analysis["backtests"] = trimmed_backtests
-        analysis = analysis.dropna(subset=["backtests"])
-        analysis = analysis.drop_duplicates(important_params)
+        if trimmed_backtests is None:
+            worker = partial(
+                backtests_up_to_date,
+                min_trading_period_start=subperiod.start_date,
+                max_trading_period_end=subperiod.end_date,
+                min_formation_period_start=subperiod.start_date,
+                quick=True
+            )
+            trimmed_backtests = Parallel(n_jobs=workers, verbose=1)(
+                delayed(worker)(backtests)
+                for backtests in tqdm(analysis["backtests"], desc="Trimming backtests")
+            )
 
-    if new_txcosts is not None:
-        new_rows = calculate_new_experiments_txcost(
-            analysis, new_txcosts, add_backtests=True
-        )
-        analysis = analysis.append(new_rows)
-        analysis = analysis.reset_index()
+            analysis["backtests"] = trimmed_backtests
+            analysis = analysis.dropna(subset=["backtests"])
+            analysis = analysis.drop_duplicates(important_params)
+
+        if new_txcosts is not None:
+            new_rows = calculate_new_experiments_txcost(
+                analysis, new_txcosts, add_backtests=False, original_only=False
+            )
+            analysis = analysis.append(new_rows)
+            analysis = analysis.reset_index()
 
     analysis["descs"] = load_descs_from_parquet(
         fpath=os.path.join(experiment_dir[0], f"{subperiod.name}_descs.parquet")
     )
+    analysis["pairs_deltas"] = analysis["config/pairs_deltas"].apply(convert_params_deltas_to_multiplier)
 
     return analysis
 
@@ -304,6 +269,9 @@ def process_experiment(
     Returns:
         [type]: [description]
     """
+    analysis = prep_experiment_from_dirs(
+        ids=ids, experiment_dir=experiment_dir, exclude_params=exclude_params
+    )
     important_params = [
         "freq",
         "lag",
@@ -316,22 +284,6 @@ def process_experiment(
         "volume_cutoff",
         "config/pairs_deltas_hashable",
     ]
-    analyses = []
-    for experiment in experiment_dir:
-        analysis = load_analysis_dataframe(
-            experiment_dir=experiment, ids=ids, exclude_params=exclude_params
-        )
-        analysis["config/pairs_deltas_hashable"] = analysis[
-            "config/pairs_deltas"
-        ].astype(str)
-
-        analysis = join_backtests_by_id(analysis, ids=ids)
-        analyses.append(analysis)
-
-    analysis = pd.concat(analyses)
-    analysis = analysis.reset_index()
-    analysis["parent_id"] = analysis.index.values
-    del analyses
 
     if trimmed_backtests is None:
         worker = partial(
@@ -351,7 +303,7 @@ def process_experiment(
 
     if new_txcosts is not None:
         new_rows = calculate_new_experiments_txcost(
-            analysis, new_txcosts, add_backtests=True
+            analysis, new_txcosts, add_backtests=True, original_only=False
         )
         analysis = analysis.append(new_rows)
         analysis = analysis.reset_index()
@@ -381,8 +333,10 @@ def process_experiment(
         descs_interim.append(descs.loc[experiment_idx])
     analysis["descs"] = descs_interim
 
-    # #NOTE this will make the newly added different-txcost-scenarios have the proper parent id because they were a copy of one of the original rows, and thus have their ID as index?
-    # analysis["parent_id"] = analysis.index.values
+    # analysis.drop(labels=['backtests', 'descs'], axis=1).to_parquet(
+    #     os.path.join(experiment_dir[0], f"{subperiod.name}_analysis.parquet")
+    # )
+    analysis.drop(labels=["backtests"], axis=1).to_pickle(os.path.join(experiment_dir[0], f"{subperiod.name}_analysis"))
 
     return analysis
 

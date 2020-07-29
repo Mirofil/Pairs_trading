@@ -211,6 +211,7 @@ def backtests_up_to_date(
     max_trading_period_end: str = None,
     min_formation_period_start=None,
     print_chosen_periods=False,
+    quick=False
 ):
     if type(max_trading_period_end) is str:
         max_trading_period_end = pd.to_datetime(max_trading_period_end)
@@ -249,17 +250,22 @@ def backtests_up_to_date(
         #     pd.to_datetime(periods["trading"][1]) < max_trading_period_end
         #     and pd.to_datetime(periods["formation"][0]) >= min_formation_period_start
         # ):
-            result = pick_range(
-                    backtests.loc[backtest_idx],
-                    start=min_formation_period_start,
-                    end=max_trading_period_end,
-                )
-            result["formation"] = [periods["formation"] for _ in range(len(result))]
-            result["trading"] = [periods["trading"] for _ in range(len(result))]
-            actual_trading_days = min((pd.to_datetime(periods["trading"][1]) - min_trading_period_start).days+1, (pd.to_datetime(periods["trading"][1])-pd.to_datetime(periods["trading"][0])).days+1)
-            result["actual_trading_days"] = actual_trading_days
-            backtests_trimmed.append(result)
-            backtests_trimmed_idxs.append(backtest_idx)
+            if quick is True:
+                #Used only for checking the range!
+                backtests_trimmed.append(backtests.loc[backtest_idx])
+                backtests_trimmed_idxs.append(backtest_idx)
+            else:
+                result = pick_range(
+                        backtests.loc[backtest_idx],
+                        start=min_formation_period_start,
+                        end=max_trading_period_end,
+                    )
+                result["formation"] = [periods["formation"] for _ in range(len(result))]
+                result["trading"] = [periods["trading"] for _ in range(len(result))]
+                actual_trading_days = min((pd.to_datetime(periods["trading"][1]) - min_trading_period_start).days+1, (pd.to_datetime(periods["trading"][1])-pd.to_datetime(periods["trading"][0])).days+1)
+                result["actual_trading_days"] = actual_trading_days
+                backtests_trimmed.append(result)
+                backtests_trimmed_idxs.append(backtest_idx)
 
         if pd.to_datetime(periods["trading"][1]) > max_trading_period_end:
             break

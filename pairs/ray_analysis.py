@@ -31,12 +31,28 @@ from pairs.formatting import beautify, standardize_results
 from pairs.helpers import *
 from pairs.helpers import latexsave
 from pairs.scripts.latex.helpers import *
-from pairs.pairs_trading_engine import pick_range, backtests_up_to_date, change_txcost_in_backtests, calculate_new_experiments_txcost
+from pairs.pairs_trading_engine import (
+    pick_range,
+    backtests_up_to_date,
+    change_txcost_in_backtests,
+    calculate_new_experiments_txcost,
+)
 from pairs.scripts.paper2.loaders import join_backtests_by_id
-from pairs.scripts.paper2.helpers import ts_stats, nya_stats
+from pairs.scripts.paper2.helpers import (
+    ts_stats,
+    nya_stats,
+    convert_params_deltas_to_multiplier,
+)
 from pairs.scripts.paper2.loaders import process_experiment, load_experiment
-from pairs.scripts.paper2.subperiods import nineties, dotcom, financial_crisis, inbetween_crises, modern
+from pairs.scripts.paper2.subperiods import (
+    nineties,
+    dotcom,
+    financial_crisis,
+    inbetween_crises,
+    modern,
+)
 from pairs.analysis import find_scenario
+
 
 def calculate_timeframes(start_date, i, jump_delta, formation_delta, training_delta):
     formation = (
@@ -55,9 +71,7 @@ def sort_aggs_by_stat(aggs, stat):
 
 
 def compute_aggregated_and_sort_by(
-    analysis: pd.DataFrame,
-    sort_by="Monthly profit",
-    descs: pd.DataFrame = None,
+    analysis: pd.DataFrame, sort_by="Monthly profit", descs: pd.DataFrame = None,
 ):
 
     if descs is None:
@@ -84,17 +98,17 @@ def compute_aggregated_and_sort_by(
     for idx in tqdm(stats_df.index, desc="Constructing aggregated statistics"):
         row = stats_df.loc[idx]
         agg = aggregate(
-                [row["descs"]],
-                None,
-                [row["trading_days"]],
-                row["aggregate_multiindex_cols"],
-                returns_nonzero=True,
-                trades_nonzero=True,
-            )
-        agg = standardize_results(agg, poslen=None, numtrades = [30/row["trading_days"]])
-        aggs.append(
-            agg
+            [row["descs"]],
+            None,
+            [row["trading_days"]],
+            row["aggregate_multiindex_cols"],
+            returns_nonzero=True,
+            trades_nonzero=True,
         )
+        agg = standardize_results(
+            agg, poslen=None, numtrades=[30 / row["trading_days"]]
+        )
+        aggs.append(agg)
     stats_df["aggregated"] = aggs
     analysis["aggregated"] = aggs
 
@@ -114,7 +128,9 @@ def analyse_top_n(
         print(
             f"Analysis was apriori narrowed down to {len(analysis)} due to fixed params"
         )
-    sorted_analysis = analysis.loc[best_configs.index.intersection(analysis.index)] # sorts the analysis DF
+    sorted_analysis = analysis.loc[
+        best_configs.index.intersection(analysis.index)
+    ]  # sorts the analysis DF
 
     if fixed_params_after is not None:
         sorted_analysis = find_scenario(sorted_analysis, params=fixed_params_after)
@@ -123,9 +139,9 @@ def analyse_top_n(
         )
 
     top_n_results = sorted_analysis.iloc[:top_n]
-    average_aggregated = top_n_results["aggregated"].sum() / max(len(
-        top_n_results["aggregated"]
-    ), 1)
+    average_aggregated = top_n_results["aggregated"].sum() / max(
+        len(top_n_results["aggregated"]), 1
+    )
 
     important_params = [
         "freq",
@@ -140,19 +156,48 @@ def analyse_top_n(
         "stoploss",
     ]
 
-    to_be_averaged = ['dist_num', 'threshold']
-    to_be_medianed = ['freq', 'lag', 'pairs_deltas', 'confidence']
+    to_be_averaged = ["dist_num", "threshold", "pairs_deltas"]
+    to_be_medianed = ["lag", "confidence"]
+
+    to_be_medianed_all = [
+        "config/dist_num",
+        "config/threshold",
+        "pairs_deltas",
+        "config/freq",
+        "config/lag",
+        "config/confidence",
+    ]
+
+    top_n_results["config/pairs_deltas"] = top_n_results["config/pairs_deltas"].apply(
+        convert_params_deltas_to_multiplier
+    )
 
     value_counts = {}
     param_avg = {}
+    param_median = {}
     for param in important_params:
         print(top_n_results["config/" + param].astype(str).value_counts())
-        value_counts["config/" + param] = top_n_results["config/" + param].astype(str).value_counts()
+        value_counts["config/" + param] = (
+            top_n_results["config/" + param].astype(str).value_counts()
+        )
         if param in to_be_averaged:
             param_avg[param] = top_n_results["config/" + param].mean()
         if param in to_be_medianed:
-            param_avg[param] = top_n_results["config/" + param].astype(str).value_counts().index[0]
+            param_avg[param] = (
+                top_n_results["config/" + param].astype(str).value_counts().index[0]
+            )
+        if param in to_be_medianed_all:
+            param_median[param] = (
+                top_n_results[param].astype(str).value_counts().index[0]
+            )
+
     # for key in value_counts.keys():
     #     value_counts[key] = eval(value_counts[key])
 
-    return {'agg_avg':average_aggregated, 'value_counts':value_counts, 'param_avg':param_avg}
+    return {
+        "agg_avg": average_aggregated,
+        "value_counts": value_counts,
+        "param_avg": param_avg,
+        "param_median": param_median,
+    }
+
