@@ -5,6 +5,7 @@ import re
 import shutil
 from contextlib import contextmanager
 from typing import *
+import multiprocessing
 
 import matplotlib.pyplot as plt
 import multiprocess as mp
@@ -22,16 +23,13 @@ from functools import partial
 from p_tqdm import p_map
 from joblib import Parallel, delayed
 
-def change_txcost_in_backtests(backtests:pd.DataFrame, old_txcost, new_txcost, workers=int(os.environ.get("cpu", len(os.sched_getaffinity(0))))):
+def change_txcost_in_backtests(backtests:pd.DataFrame, old_txcost, new_txcost, workers=int(os.environ.get("cpu", multiprocessing.cpu_count()))):
     pd.set_option('mode.chained_assignment', None)
 
     backtests = backtests.copy(deep=True)
     worker = partial(change_txcost_in_backtest, old_txcost=old_txcost, new_txcost=new_txcost)
     shards = np.array_split(backtests, workers)
-    # for backtest_idx in tqdm(backtests.index.get_level_values(0).unique(0), desc='Going over backtests idxs'):
-    #     backtests.loc[backtest_idx] = change_txcost_in_backtest(backtests.loc[backtest_idx], old_txcost=old_txcost, new_txcost=new_txcost)
 
-    # backtests = p_map(worker, shards, num_cpus=workers)
 
     result = Parallel(n_jobs=workers, verbose=1)(delayed(worker)(backtests.loc[backtest_idx]) for backtest_idx in backtests.index.get_level_values(0).unique(0))
     return pd.concat(result, keys=range(len(backtests.index.get_level_values(0).unique(0))))

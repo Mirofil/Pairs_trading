@@ -182,7 +182,7 @@ def simulate(
             # k = cointegration(find_integrated(coint_head), num_of_processes=1)
             distances = distance(head, num=20000, method="modern")
             cointed = find_integrated(head)
-
+        
             k = cointegration_mixed(
                 cointed,
                 distances["viable_pairs"],

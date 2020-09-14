@@ -12,7 +12,7 @@ from pairs.distancemethod import *
 from pairs.helpers import load_results
 from pairs.cointmethod import *
 from pairs.config import *
-from pairs.itertools import zip_longest
+from itertools import zip_longest
 from pairs.formatting import beautify, standardize_results
 import pickle
 
